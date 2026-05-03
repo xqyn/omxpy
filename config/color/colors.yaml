@@ -1,0 +1,18 @@
+# Color palette for grouped bar plots.
+# Colors are applied in order; the first N entries are used where
+# N == len(value_cols). Add or reorder entries to change defaults.
+#
+# Palette: colorblind-safe + print-friendly (Wong 2011 + extensions)
+colors:
+  - "#E69F00"   # orange
+  - "#56B4E9"   # sky blue
+  - "#009E73"   # bluish green
+  - "#F0E442"   # yellow
+  - "#0072B2"   # blue
+  - "#D55E00"   # vermillion
+  - "#CC79A7"   # reddish purple
+  - "#999999"   # grey
+  - "#44AA99"   # teal
+  - "#882255"   # wine
+  - "#DDCC77"   # sand
+  - "#332288"   # indigo
