@@ -1,0 +1,70 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# ── Package / Build ───────────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data/raw/
+data/processed/
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.npy
+*.npz
+*.hdf5
+*.h5
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Environment / Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+*.key
+secrets.yaml
+secrets.json
+
+# ── DVC ───────────────────────────────────────────────────────────────────────
+/tmp
+.dvc/tmp
+.dvc/cache
