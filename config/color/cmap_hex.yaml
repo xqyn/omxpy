@@ -1,0 +1,463 @@
+# =============================================================================
+# Matplotlib Colormaps — Complete Reference with Hex Gradients (10-stop)
+# 90 base colormaps × 2 (_r reversed) = 180 total
+#
+# Usage:
+#   import yaml
+#   import matplotlib.pyplot as plt
+#
+#   with open('cmap.yaml') as f:
+#       cmaps = yaml.safe_load(f)['colormaps']
+#
+#   # Get a flat list of all names
+#   all_names = [name for cat in cmaps.values() for name in cat['maps']]
+#
+#   # Get base names only (no _r)
+#   base_names = [n for n in all_names if not n.endswith('_r')]
+#
+#   # Get names by category
+#   diverging = list(cmaps['diverging']['maps'].keys())
+#
+#   # Get the 10-stop hex gradient for a cmap
+#   hex_colors = cmaps['diverging']['maps']['RdBu']['gradient']
+#
+#   # Use directly in matplotlib
+#   cmap = plt.get_cmap('viridis')
+# =============================================================================
+
+colormaps:
+
+  # Perceptually uniform — recommended default for scientific / omics data
+  perceptually_uniform_sequential:
+    description: >
+      Perceptually uniform sequential colormaps. Recommended default for scientific data. Colorblind-friendly, prints well in greyscale.
+    recommended_for:
+      - gene expression heatmaps
+      - coverage/depth tracks
+      - continuous scalar fields
+      - publication figures (colorblind-safe)
+    maps:
+      viridis:
+        gradient: ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"]
+      viridis_r:
+        gradient: ["#fde725", "#b5de2b", "#6ece58", "#35b779", "#1f9e89", "#26828e", "#31688e", "#3e4989", "#482878", "#440154"]
+      plasma:
+        gradient: ["#0d0887", "#46039f", "#7201a8", "#9c179e", "#bd3786", "#d8576b", "#ed7953", "#fb9f3a", "#fdca26", "#f0f921"]
+      plasma_r:
+        gradient: ["#f0f921", "#fdca26", "#fb9f3a", "#ed7953", "#d8576b", "#bd3786", "#9c179e", "#7201a8", "#46039f", "#0d0887"]
+      inferno:
+        gradient: ["#000004", "#1b0c41", "#4a0c6b", "#781c6d", "#a52c60", "#cf4446", "#ed6925", "#fb9b06", "#f7d13d", "#fcffa4"]
+      inferno_r:
+        gradient: ["#fcffa4", "#f7d13d", "#fb9b06", "#ed6925", "#cf4446", "#a52c60", "#781c6d", "#4a0c6b", "#1b0c41", "#000004"]
+      magma:
+        gradient: ["#000004", "#180f3d", "#440f76", "#721f81", "#9e2f7f", "#cd4071", "#f1605d", "#fd9668", "#feca8d", "#fcfdbf"]
+      magma_r:
+        gradient: ["#fcfdbf", "#feca8d", "#fd9668", "#f1605d", "#cd4071", "#9e2f7f", "#721f81", "#440f76", "#180f3d", "#000004"]
+      cividis:
+        gradient: ["#00224e", "#123570", "#3b496c", "#575d6d", "#707173", "#8a8678", "#a59c74", "#c3b369", "#e1cc55", "#fee838"]
+      cividis_r:
+        gradient: ["#fee838", "#e1cc55", "#c3b369", "#a59c74", "#8a8678", "#707173", "#575d6d", "#3b496c", "#123570", "#00224e"]
+
+  # Sequential (ColorBrewer) — single-hue, light→dark
+  sequential:
+    description: >
+      Sequential single-hue ColorBrewer colormaps. Light (low) to dark (high). Good for data with a meaningful minimum near zero.
+    recommended_for:
+      - read counts
+      - p-value / FDR gradients
+      - enrichment scores
+      - ATAC-seq / ChIP-seq signal
+    maps:
+      Greys:
+        gradient: ["#ffffff", "#f2f2f2", "#dfdfdf", "#c6c6c6", "#a8a8a8", "#868686", "#686868", "#474747", "#212121", "#000000"]
+      Greys_r:
+        gradient: ["#000000", "#212121", "#474747", "#686868", "#868686", "#a8a8a8", "#c6c6c6", "#dfdfdf", "#f2f2f2", "#ffffff"]
+      Grays:
+        gradient: ["#ffffff", "#f2f2f2", "#dfdfdf", "#c6c6c6", "#a8a8a8", "#868686", "#686868", "#474747", "#212121", "#000000"]
+      Grays_r:
+        gradient: ["#000000", "#212121", "#474747", "#686868", "#868686", "#a8a8a8", "#c6c6c6", "#dfdfdf", "#f2f2f2", "#ffffff"]
+      Purples:
+        gradient: ["#fcfbfd", "#f1eff6", "#dfdfed", "#c6c7e1", "#acaad1", "#908dc2", "#796eb2", "#65479e", "#51228d", "#3f007d"]
+      Purples_r:
+        gradient: ["#3f007d", "#51228d", "#65479e", "#796eb2", "#908dc2", "#acaad1", "#c6c7e1", "#dfdfed", "#f1eff6", "#fcfbfd"]
+      Blues:
+        gradient: ["#f7fbff", "#e1edf8", "#ccdff1", "#abd0e6", "#82bbdb", "#58a1cf", "#3787c0", "#1b69af", "#084d96", "#08306b"]
+      Blues_r:
+        gradient: ["#08306b", "#084d96", "#1b69af", "#3787c0", "#58a1cf", "#82bbdb", "#abd0e6", "#ccdff1", "#e1edf8", "#f7fbff"]
+      Greens:
+        gradient: ["#f7fcf5", "#e7f6e3", "#ceecc8", "#aedea7", "#88ce87", "#5db96b", "#37a055", "#1a843f", "#00682a", "#00441b"]
+      Greens_r:
+        gradient: ["#00441b", "#00682a", "#1a843f", "#37a055", "#5db96b", "#88ce87", "#aedea7", "#ceecc8", "#e7f6e3", "#f7fcf5"]
+      Oranges:
+        gradient: ["#fff5eb", "#fee8d2", "#fdd5ad", "#fdb97d", "#fd9c51", "#f87d29", "#e95e0d", "#cd4401", "#a13403", "#7f2704"]
+      Oranges_r:
+        gradient: ["#7f2704", "#a13403", "#cd4401", "#e95e0d", "#f87d29", "#fd9c51", "#fdb97d", "#fdd5ad", "#fee8d2", "#fff5eb"]
+      Reds:
+        gradient: ["#fff5f0", "#fee3d6", "#fcc4ad", "#fca082", "#fb7c5c", "#f6553c", "#e32f27", "#c2161b", "#9d0d14", "#67000d"]
+      Reds_r:
+        gradient: ["#67000d", "#9d0d14", "#c2161b", "#e32f27", "#f6553c", "#fb7c5c", "#fca082", "#fcc4ad", "#fee3d6", "#fff5f0"]
+      YlOrBr:
+        gradient: ["#ffffe5", "#fff8c1", "#fee89b", "#fece65", "#fead3a", "#f6861f", "#e1640e", "#c04602", "#933204", "#662506"]
+      YlOrBr_r:
+        gradient: ["#662506", "#933204", "#c04602", "#e1640e", "#f6861f", "#fead3a", "#fece65", "#fee89b", "#fff8c1", "#ffffe5"]
+      YlOrRd:
+        gradient: ["#ffffcc", "#ffefa5", "#fede80", "#febf5a", "#fd9e43", "#fd7034", "#f43d25", "#da141e", "#b60026", "#800026"]
+      YlOrRd_r:
+        gradient: ["#800026", "#b60026", "#da141e", "#f43d25", "#fd7034", "#fd9e43", "#febf5a", "#fede80", "#ffefa5", "#ffffcc"]
+      OrRd:
+        gradient: ["#fff7ec", "#feeacc", "#fdd9a8", "#fdc38d", "#fca26d", "#f67b51", "#e7533a", "#ce2417", "#ad0000", "#7f0000"]
+      OrRd_r:
+        gradient: ["#7f0000", "#ad0000", "#ce2417", "#e7533a", "#f67b51", "#fca26d", "#fdc38d", "#fdd9a8", "#feeacc", "#fff7ec"]
+      PuRd:
+        gradient: ["#f7f4f9", "#e9e3f0", "#d9c3df", "#cda0cd", "#d57aba", "#e34a9f", "#df2179", "#c10e51", "#92003f", "#67001f"]
+      PuRd_r:
+        gradient: ["#67001f", "#92003f", "#c10e51", "#df2179", "#e34a9f", "#d57aba", "#cda0cd", "#d9c3df", "#e9e3f0", "#f7f4f9"]
+      RdPu:
+        gradient: ["#fff7f3", "#fde3e0", "#fcccc7", "#fbacb9", "#f881aa", "#eb509c", "#cd238f", "#a1017c", "#740175", "#49006a"]
+      RdPu_r:
+        gradient: ["#49006a", "#740175", "#a1017c", "#cd238f", "#eb509c", "#f881aa", "#fbacb9", "#fcccc7", "#fde3e0", "#fff7f3"]
+      BuPu:
+        gradient: ["#f7fcfd", "#e3eef5", "#c7d9e9", "#a9c4de", "#94a7cf", "#8c82bc", "#8b5daa", "#863595", "#7b0d76", "#4d004b"]
+      BuPu_r:
+        gradient: ["#4d004b", "#7b0d76", "#863595", "#8b5daa", "#8c82bc", "#94a7cf", "#a9c4de", "#c7d9e9", "#e3eef5", "#f7fcfd"]
+      GnBu:
+        gradient: ["#f7fcf0", "#e3f4de", "#d1edca", "#b4e2ba", "#8fd4bd", "#67c1cb", "#42a6cc", "#2283ba", "#0863a7", "#084081"]
+      GnBu_r:
+        gradient: ["#084081", "#0863a7", "#2283ba", "#42a6cc", "#67c1cb", "#8fd4bd", "#b4e2ba", "#d1edca", "#e3f4de", "#f7fcf0"]
+      PuBu:
+        gradient: ["#fff7fb", "#eee9f3", "#d7d6e9", "#b4c4df", "#8bb2d4", "#589ec8", "#2685bb", "#056ba7", "#045687", "#023858"]
+      PuBu_r:
+        gradient: ["#023858", "#045687", "#056ba7", "#2685bb", "#589ec8", "#8bb2d4", "#b4c4df", "#d7d6e9", "#eee9f3", "#fff7fb"]
+      YlGnBu:
+        gradient: ["#ffffd9", "#eff9b6", "#d0edb3", "#97d6b9", "#5dc0c0", "#31a5c2", "#1f80b8", "#2354a3", "#21318d", "#081d58"]
+      YlGnBu_r:
+        gradient: ["#081d58", "#21318d", "#2354a3", "#1f80b8", "#31a5c2", "#5dc0c0", "#97d6b9", "#d0edb3", "#eff9b6", "#ffffd9"]
+      PuBuGn:
+        gradient: ["#fff7fb", "#eee5f1", "#d7d5e8", "#b4c4df", "#84b2d4", "#519ec8", "#258bae", "#027c7e", "#016755", "#014636"]
+      PuBuGn_r:
+        gradient: ["#014636", "#016755", "#027c7e", "#258bae", "#519ec8", "#84b2d4", "#b4c4df", "#d7d5e8", "#eee5f1", "#fff7fb"]
+      BuGn:
+        gradient: ["#f7fcfd", "#e7f6f9", "#d2eeeb", "#aadfd3", "#7dccb5", "#55b98f", "#37a266", "#1a843f", "#00682a", "#00441b"]
+      BuGn_r:
+        gradient: ["#00441b", "#00682a", "#1a843f", "#37a266", "#55b98f", "#7dccb5", "#aadfd3", "#d2eeeb", "#e7f6f9", "#f7fcfd"]
+      YlGn:
+        gradient: ["#ffffe5", "#f8fcbe", "#e0f3a8", "#bce395", "#90d083", "#5fba6c", "#379e54", "#1a7d40", "#006435", "#004529"]
+      YlGn_r:
+        gradient: ["#004529", "#006435", "#1a7d40", "#379e54", "#5fba6c", "#90d083", "#bce395", "#e0f3a8", "#f8fcbe", "#ffffe5"]
+
+  # Sequential (classic) — many non-uniform; use with care in publications
+  sequential_2:
+    description: >
+      Classic sequential colormaps. Many are perceptually non-uniform. Prefer perceptually_uniform_sequential for publications.
+    recommended_for:
+      - legacy/compatibility figures
+      - medical imaging (bone, hot)
+      - artistic/exploratory visualization
+    maps:
+      binary:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]
+      binary_r:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      gist_yarg:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]
+      gist_yarg_r:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      gist_gray:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      gist_gray_r:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]
+      gray:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      gray_r:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]
+      bone:
+        gradient: ["#000000", "#181822", "#313144", "#4a4a67", "#636983", "#7c8c9c", "#95aeb5", "#b2cece", "#d9e6e6", "#ffffff"]
+      bone_r:
+        gradient: ["#ffffff", "#d9e6e6", "#b2cece", "#95aeb5", "#7c8c9c", "#636983", "#4a4a67", "#313144", "#181822", "#000000"]
+      pink:
+        gradient: ["#1e0000", "#6d4545", "#976262", "#b97878", "#ca9a8b", "#d6bb9b", "#e1d7aa", "#ececc0", "#f5f5e2", "#ffffff"]
+      pink_r:
+        gradient: ["#ffffff", "#f5f5e2", "#ececc0", "#e1d7aa", "#d6bb9b", "#ca9a8b", "#b97878", "#976262", "#6d4545", "#1e0000"]
+      spring:
+        gradient: ["#ff00ff", "#ff1ce3", "#ff38c7", "#ff55aa", "#ff718e", "#ff8e71", "#ffaa55", "#ffc738", "#ffe31c", "#ffff00"]
+      spring_r:
+        gradient: ["#ffff00", "#ffe31c", "#ffc738", "#ffaa55", "#ff8e71", "#ff718e", "#ff55aa", "#ff38c7", "#ff1ce3", "#ff00ff"]
+      summer:
+        gradient: ["#008066", "#1c8e66", "#389c66", "#55aa66", "#71b866", "#8ec666", "#aad466", "#c7e366", "#e3f166", "#ffff66"]
+      summer_r:
+        gradient: ["#ffff66", "#e3f166", "#c7e366", "#aad466", "#8ec666", "#71b866", "#55aa66", "#389c66", "#1c8e66", "#008066"]
+      autumn:
+        gradient: ["#ff0000", "#ff1c00", "#ff3800", "#ff5500", "#ff7100", "#ff8e00", "#ffaa00", "#ffc700", "#ffe300", "#ffff00"]
+      autumn_r:
+        gradient: ["#ffff00", "#ffe300", "#ffc700", "#ffaa00", "#ff8e00", "#ff7100", "#ff5500", "#ff3800", "#ff1c00", "#ff0000"]
+      winter:
+        gradient: ["#0000ff", "#001cf1", "#0038e3", "#0055d4", "#0071c6", "#008eb8", "#00aaaa", "#00c79c", "#00e38e", "#00ff80"]
+      winter_r:
+        gradient: ["#00ff80", "#00e38e", "#00c79c", "#00aaaa", "#008eb8", "#0071c6", "#0055d4", "#0038e3", "#001cf1", "#0000ff"]
+      cool:
+        gradient: ["#00ffff", "#1ce3ff", "#38c7ff", "#55aaff", "#718eff", "#8e71ff", "#aa55ff", "#c738ff", "#e31cff", "#ff00ff"]
+      cool_r:
+        gradient: ["#ff00ff", "#e31cff", "#c738ff", "#aa55ff", "#8e71ff", "#718eff", "#55aaff", "#38c7ff", "#1ce3ff", "#00ffff"]
+      Wistia:
+        gradient: ["#e4ff7a", "#f0f550", "#fceb26", "#ffda11", "#ffc706", "#ffb600", "#ffaa00", "#ff9c00", "#fd8d00", "#fc7f00"]
+      Wistia_r:
+        gradient: ["#fc7f00", "#fd8d00", "#ff9c00", "#ffaa00", "#ffb600", "#ffc706", "#ffda11", "#fceb26", "#f0f550", "#e4ff7a"]
+      hot:
+        gradient: ["#0b0000", "#540000", "#9e0000", "#ea0000", "#ff3400", "#ff8000", "#ffca00", "#ffff22", "#ffff91", "#ffffff"]
+      hot_r:
+        gradient: ["#ffffff", "#ffff91", "#ffff22", "#ffca00", "#ff8000", "#ff3400", "#ea0000", "#9e0000", "#540000", "#0b0000"]
+      afmhot:
+        gradient: ["#000000", "#380000", "#700000", "#aa2a00", "#e26200", "#ff9c1d", "#ffd455", "#ffff8f", "#ffffc7", "#ffffff"]
+      afmhot_r:
+        gradient: ["#ffffff", "#ffffc7", "#ffff8f", "#ffd555", "#ff9c1d", "#e26200", "#aa2b00", "#700000", "#380000", "#000000"]
+      gist_heat:
+        gradient: ["#000000", "#2a0000", "#540000", "#800000", "#aa0000", "#d51d00", "#ff5500", "#ff8f1f", "#ffc78f", "#ffffff"]
+      gist_heat_r:
+        gradient: ["#ffffff", "#ffc78f", "#ff8f1f", "#ff5500", "#d51d00", "#aa0000", "#800000", "#540000", "#2a0000", "#000000"]
+      copper:
+        gradient: ["#000000", "#23160e", "#452c1c", "#69422a", "#8c5838", "#af6f47", "#d28555", "#f69b63", "#ffb171", "#ffc77f"]
+      copper_r:
+        gradient: ["#ffc77f", "#ffb171", "#f69b63", "#d28555", "#af6f47", "#8c5838", "#69422a", "#452c1c", "#23160e", "#000000"]
+
+  # Diverging — neutral midpoint; ideal for fold-change, correlation, methylation
+  diverging:
+    description: >
+      Diverging colormaps with a neutral midpoint. Ideal when data has a meaningful center value (e.g., 0 for fold-change).
+    recommended_for:
+      - log2 fold-change heatmaps
+      - correlation matrices
+      - DNA methylation (0-1)
+      - Z-scores / standardized values
+      - differential expression
+    maps:
+      PiYG:
+        gradient: ["#8e0152", "#c72482", "#e283b7", "#f5c4e1", "#faeaf2", "#edf6e1", "#c7e89f", "#8ac34f", "#529624", "#276419"]
+      PiYG_r:
+        gradient: ["#276419", "#529624", "#8ac34f", "#c7e89f", "#edf6e1", "#faeaf2", "#f5c4e1", "#e283b7", "#c72482", "#8e0152"]
+      PRGn:
+        gradient: ["#40004b", "#793187", "#a17ab2", "#ceb5d7", "#eee3ee", "#e6f3e3", "#b7e2b1", "#69b76d", "#217d3b", "#00441b"]
+      PRGn_r:
+        gradient: ["#00441b", "#217d3b", "#69b76d", "#b7e2b1", "#e6f3e3", "#eee3ee", "#ceb5d7", "#a17ab2", "#793187", "#40004b"]
+      BrBG:
+        gradient: ["#543005", "#91560d", "#c58e3d", "#e7cf94", "#f6eed9", "#dbefec", "#98d7cd", "#44a299", "#066b63", "#003c30"]
+      BrBG_r:
+        gradient: ["#003c30", "#066b63", "#44a299", "#98d7cd", "#dbefec", "#f6eed9", "#e7cf94", "#c58e3d", "#91560d", "#543005"]
+      PuOr:
+        gradient: ["#7f3b08", "#b75c07", "#e68d23", "#fdc57f", "#fbead2", "#e5e7f0", "#bfbbda", "#8a7eb3", "#582e8c", "#2d004b"]
+      PuOr_r:
+        gradient: ["#2d004b", "#582e8c", "#8a7eb3", "#bfbbda", "#e5e7f0", "#fbead2", "#fdc57f", "#e68d23", "#b75c07", "#7f3b08"]
+      RdGy:
+        gradient: ["#67001f", "#b61f2e", "#dc6e57", "#f7b799", "#feebdf", "#ededed", "#c7c7c7", "#919191", "#535353", "#1a1a1a"]
+      RdGy_r:
+        gradient: ["#1a1a1a", "#535353", "#919191", "#c7c7c7", "#ededed", "#feebdf", "#f7b799", "#dc6e57", "#b61f2e", "#67001f"]
+      RdBu:
+        gradient: ["#67001f", "#b61f2e", "#dc6e57", "#f7b799", "#fae7dc", "#e1edf3", "#a7d0e4", "#529dc8", "#246aae", "#053061"]
+      RdBu_r:
+        gradient: ["#053061", "#246aae", "#529dc8", "#a7d0e4", "#e1edf3", "#fae7dc", "#f7b799", "#dc6e57", "#b61f2e", "#67001f"]
+      RdYlBu:
+        gradient: ["#a50026", "#da362a", "#f67a49", "#fdbf71", "#feeda4", "#edf8df", "#bde2ee", "#7fb6d6", "#4a7ab7", "#313695"]
+      RdYlBu_r:
+        gradient: ["#313695", "#4a7ab7", "#7fb6d6", "#bde2ee", "#edf8df", "#feeda4", "#fdbf71", "#f67a49", "#da362a", "#a50026"]
+      RdYlGn:
+        gradient: ["#a50026", "#da362a", "#f67a49", "#fdbf6f", "#feeda1", "#e9f6a1", "#b7e075", "#73c264", "#219c52", "#006837"]
+      RdYlGn_r:
+        gradient: ["#006837", "#219c52", "#73c264", "#b7e075", "#e9f6a1", "#feeda1", "#fdbf6f", "#f67a49", "#da362a", "#a50026"]
+      Spectral:
+        gradient: ["#9e0142", "#d8434e", "#f67a49", "#fdbf6f", "#feeda1", "#f1f9a9", "#bfe5a0", "#74c7a5", "#378ebb", "#5e4fa2"]
+      Spectral_r:
+        gradient: ["#5e4fa2", "#378ebb", "#74c7a5", "#bfe5a0", "#f1f9a9", "#feeda1", "#fdbf6f", "#f67a49", "#d8434e", "#9e0142"]
+      coolwarm:
+        gradient: ["#3b4cc0", "#5d7ce6", "#82a6fb", "#aac7fd", "#cdd9ec", "#ead4c8", "#f7b89c", "#f18d6f", "#d95847", "#b40426"]
+      coolwarm_r:
+        gradient: ["#b40426", "#d95847", "#f18d6f", "#f7b89c", "#ead4c8", "#cdd9ec", "#aac7fd", "#82a6fb", "#5d7ce6", "#3b4cc0"]
+      bwr:
+        gradient: ["#0000ff", "#3838ff", "#7070ff", "#aaaaff", "#e2e2ff", "#ffe2e2", "#ffaaaa", "#ff7070", "#ff3838", "#ff0000"]
+      bwr_r:
+        gradient: ["#ff0000", "#ff3838", "#ff7070", "#ffaaaa", "#ffe2e2", "#e2e2ff", "#aaaaff", "#7070ff", "#3838ff", "#0000ff"]
+      seismic:
+        gradient: ["#00004c", "#00009b", "#0000e9", "#5555ff", "#c5c5ff", "#ffc5c5", "#ff5555", "#f00000", "#b80000", "#800000"]
+      seismic_r:
+        gradient: ["#800000", "#b80000", "#f00000", "#ff5555", "#ffc5c5", "#c5c5ff", "#5555ff", "#0000e9", "#00009b", "#00004c"]
+      berlin:
+        gradient: ["#9eb0ff", "#5ba4db", "#2e7699", "#1a4256", "#11191e", "#280d01", "#501803", "#8c402c", "#c4756a", "#ffadad"]
+      berlin_r:
+        gradient: ["#ffadad", "#c4756a", "#8c402c", "#501803", "#280d01", "#11191e", "#1a4256", "#2e7699", "#5ba4db", "#9eb0ff"]
+      managua:
+        gradient: ["#ffcf67", "#dd9a55", "#bb6d46", "#92463b", "#672b3c", "#4e315e", "#4e5593", "#5c81bd", "#6db1de", "#81e7ff"]
+      managua_r:
+        gradient: ["#81e7ff", "#6db1de", "#5c81bd", "#4e5593", "#4e315e", "#672b3c", "#92463b", "#bb6d46", "#dd9a55", "#ffcf67"]
+      vanimo:
+        gradient: ["#ffcdfd", "#d381c4", "#a34b90", "#5c244f", "#23141d", "#1b1e11", "#36491a", "#5b7e2b", "#85b54d", "#befda5"]
+      vanimo_r:
+        gradient: ["#befda5", "#85b54d", "#5b7e2b", "#36491a", "#1b1e11", "#23141d", "#5c244f", "#a34b90", "#d381c4", "#ffcdfd"]
+
+  # Cyclic — start == end; for phase, angular, or circular data
+  cyclic:
+    description: >
+      Cyclic colormaps where the start and end colors match. Designed for periodic data.
+    recommended_for:
+      - phase data (Hi-C, NMR)
+      - angular/directional data
+      - circular genomic coordinates
+    maps:
+      twilight:
+        gradient: ["#e2d9e2", "#9ebbc9", "#6785be", "#5e43a5", "#421257", "#471340", "#8e2c50", "#ba6657", "#ceac94", "#e2d9e2"]
+      twilight_r:
+        gradient: ["#e2d9e2", "#ceac94", "#ba6657", "#8d2b50", "#471340", "#421257", "#5e45a6", "#6785be", "#9ebbc9", "#e2d9e2"]
+      twilight_shifted:
+        gradient: ["#301437", "#572385", "#6066b6", "#7ca2c2", "#c8d0d6", "#dacac3", "#c6896c", "#a84750", "#6b1b4d", "#2f1436"]
+      twilight_shifted_r:
+        gradient: ["#2f1436", "#6b1b4d", "#a84750", "#c68a6d", "#dacac3", "#c8d0d6", "#7ba1c2", "#6066b6", "#572385", "#301437"]
+      hsv:
+        gradient: ["#ff0000", "#ffa500", "#b3ff00", "#08ff00", "#00ff9d", "#00b5ff", "#0010ff", "#9b00ff", "#ff00bd", "#ff0018"]
+      hsv_r:
+        gradient: ["#ff0018", "#ff00bd", "#9b00ff", "#0010ff", "#00b5ff", "#00ff9d", "#08ff00", "#b3ff00", "#ffa500", "#ff0000"]
+
+  # Qualitative — categorical; for cell types, clusters, sample groups
+  qualitative:
+    description: >
+      Qualitative colormaps for categorical/nominal data. Colors are visually distinct without implying order.
+    recommended_for:
+      - cell type annotations (scRNA-seq)
+      - cluster labels (UMAP, t-SNE)
+      - sample/condition groups
+      - genomic feature categories
+    maps:
+      Pastel1:
+        gradient: ["#fbb4ae", "#b3cde3", "#ccebc5", "#decbe4", "#fed9a6", "#ffffcc", "#e5d8bd", "#fddaec", "#f2f2f2", "#f2f2f2"]
+      Pastel1_r:
+        gradient: ["#f2f2f2", "#fddaec", "#e5d8bd", "#ffffcc", "#fed9a6", "#decbe4", "#ccebc5", "#b3cde3", "#fbb4ae", "#fbb4ae"]
+      Pastel2:
+        gradient: ["#b3e2cd", "#b3e2cd", "#fdcdac", "#cbd5e8", "#f4cae4", "#e6f5c9", "#fff2ae", "#f1e2cc", "#cccccc", "#cccccc"]
+      Pastel2_r:
+        gradient: ["#cccccc", "#cccccc", "#f1e2cc", "#fff2ae", "#e6f5c9", "#f4cae4", "#cbd5e8", "#fdcdac", "#b3e2cd", "#b3e2cd"]
+      Paired:
+        gradient: ["#a6cee3", "#1f78b4", "#b2df8a", "#fb9a99", "#e31a1c", "#fdbf6f", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"]
+      Paired_r:
+        gradient: ["#b15928", "#ffff99", "#6a3d9a", "#ff7f00", "#fdbf6f", "#e31a1c", "#33a02c", "#b2df8a", "#1f78b4", "#a6cee3"]
+      Accent:
+        gradient: ["#7fc97f", "#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f", "#bf5b17", "#666666", "#666666"]
+      Accent_r:
+        gradient: ["#666666", "#666666", "#bf5b17", "#f0027f", "#386cb0", "#ffff99", "#fdc086", "#beaed4", "#7fc97f", "#7fc97f"]
+      Dark2:
+        gradient: ["#1b9e77", "#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666", "#666666"]
+      Dark2_r:
+        gradient: ["#666666", "#666666", "#a6761d", "#e6ab02", "#66a61e", "#e7298a", "#7570b3", "#d95f02", "#1b9e77", "#1b9e77"]
+      Set1:
+        gradient: ["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#ffff33", "#a65628", "#f781bf", "#999999", "#999999"]
+      Set1_r:
+        gradient: ["#999999", "#f781bf", "#a65628", "#ffff33", "#ff7f00", "#984ea3", "#4daf4a", "#377eb8", "#e41a1c", "#e41a1c"]
+      Set2:
+        gradient: ["#66c2a5", "#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3", "#b3b3b3"]
+      Set2_r:
+        gradient: ["#b3b3b3", "#b3b3b3", "#e5c494", "#ffd92f", "#a6d854", "#e78ac3", "#8da0cb", "#fc8d62", "#66c2a5", "#66c2a5"]
+      Set3:
+        gradient: ["#8dd3c7", "#ffffb3", "#bebada", "#80b1d3", "#fdb462", "#b3de69", "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f"]
+      Set3_r:
+        gradient: ["#ffed6f", "#ccebc5", "#bc80bd", "#fccde5", "#b3de69", "#fdb462", "#fb8072", "#bebada", "#ffffb3", "#8dd3c7"]
+      tab10:
+        gradient: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+      tab10_r:
+        gradient: ["#17becf", "#bcbd22", "#7f7f7f", "#e377c2", "#8c564b", "#9467bd", "#d62728", "#2ca02c", "#ff7f0e", "#1f77b4"]
+      tab20:
+        gradient: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#c49c94", "#f7b6d2", "#c7c7c7", "#dbdb8d", "#9edae5"]
+      tab20_r:
+        gradient: ["#9edae5", "#dbdb8d", "#c7c7c7", "#f7b6d2", "#c49c94", "#9467bd", "#d62728", "#2ca02c", "#ff7f0e", "#1f77b4"]
+      tab20b:
+        gradient: ["#393b79", "#6b6ecf", "#637939", "#b5cf6b", "#8c6d31", "#e7cb94", "#ad494a", "#e7969c", "#a55194", "#de9ed6"]
+      tab20b_r:
+        gradient: ["#de9ed6", "#a55194", "#e7969c", "#ad494a", "#e7cb94", "#8c6d31", "#b5cf6b", "#637939", "#6b6ecf", "#393b79"]
+      tab20c:
+        gradient: ["#3182bd", "#9ecae1", "#e6550d", "#fdae6b", "#31a354", "#c7e9c0", "#9e9ac8", "#dadaeb", "#969696", "#d9d9d9"]
+      tab20c_r:
+        gradient: ["#d9d9d9", "#969696", "#dadaeb", "#9e9ac8", "#c7e9c0", "#31a354", "#fdae6b", "#e6550d", "#9ecae1", "#3182bd"]
+
+  # Miscellaneous — specialized or legacy; many perceptually non-uniform
+  miscellaneous:
+    description: >
+      Miscellaneous colormaps for specialized or legacy use cases. Many are perceptually non-uniform.
+    recommended_for:
+      - terrain/topographic data
+      - rainbow-style (jet - legacy)
+      - high-contrast scientific (turbo, nipy_spectral)
+    maps:
+      flag:
+        gradient: ["#ff0000", "#00000b", "#1f41ff", "#ffffff", "#f40000", "#0b0000", "#0000ff", "#e0f7ff", "#ff210b", "#000000"]
+      flag_r:
+        gradient: ["#000000", "#ff210b", "#e0f7ff", "#0000ff", "#0b0000", "#f40000", "#ffffff", "#1f41ff", "#00000b", "#ff0000"]
+      prism:
+        gradient: ["#ff0000", "#ff6f00", "#fffc00", "#32e900", "#004dcd", "#6900fe", "#ff003a", "#ff7800", "#ffff00", "#54ff00"]
+      prism_r:
+        gradient: ["#54ff00", "#ffff00", "#ff7800", "#ff003a", "#6900fe", "#004dcd", "#32e900", "#fffc00", "#ff6f00", "#ff0000"]
+      ocean:
+        gradient: ["#008000", "#00561c", "#002c38", "#000055", "#002a71", "#00568e", "#0080aa", "#57abc7", "#abd5e3", "#ffffff"]
+      ocean_r:
+        gradient: ["#ffffff", "#abd5e3", "#57abc7", "#0080aa", "#00568e", "#002a71", "#000055", "#002c38", "#00551c", "#008000"]
+      gist_earth:
+        gradient: ["#000000", "#133078", "#25677d", "#368770", "#43984d", "#7ca753", "#aab35c", "#c0a565", "#debba7", "#fdfbfb"]
+      gist_earth_r:
+        gradient: ["#fdfbfb", "#debba7", "#c0a565", "#aab35c", "#7ca753", "#43984d", "#368770", "#25677d", "#133078", "#000000"]
+      terrain:
+        gradient: ["#333399", "#0e7ee4", "#00bc94", "#55dd77", "#c5f38d", "#e2da89", "#aa926b", "#8f7069", "#c7b7b4", "#ffffff"]
+      terrain_r:
+        gradient: ["#ffffff", "#c7b7b4", "#8f7069", "#aa926b", "#e2da89", "#c5f38d", "#55dd77", "#00bc94", "#0e7ee4", "#333399"]
+      gist_stern:
+        gradient: ["#000000", "#b91c38", "#2d3870", "#5555aa", "#7171e2", "#8e8ec1", "#aaaa4a", "#c7c72c", "#e3e395", "#ffffff"]
+      gist_stern_r:
+        gradient: ["#ffffff", "#e3e395", "#c7c72c", "#aaaa4a", "#8e8ec1", "#7171e2", "#5555aa", "#2d3870", "#b91c38", "#000000"]
+      gnuplot:
+        gradient: ["#000000", "#5400a2", "#7703fa", "#9309dd", "#aa1659", "#be2c00", "#d04c00", "#e17900", "#f1b400", "#ffff00"]
+      gnuplot_r:
+        gradient: ["#ffff00", "#f1b400", "#e17900", "#d04c00", "#be2c00", "#aa1659", "#9309dd", "#7703fa", "#5400a2", "#000000"]
+      gnuplot2:
+        gradient: ["#000000", "#000070", "#0000e0", "#4200ff", "#9a0cf3", "#f546b9", "#ff7e81", "#ffb847", "#fff00f", "#ffffff"]
+      gnuplot2_r:
+        gradient: ["#ffffff", "#fff00f", "#ffb847", "#ff7e81", "#f546b9", "#9a0cf3", "#4200ff", "#0000e0", "#000070", "#000000"]
+      CMRmap:
+        gradient: ["#000000", "#222270", "#4326b0", "#802f95", "#d13a4f", "#f35d15", "#e69508", "#e6c932", "#e9e98f", "#ffffff"]
+      CMRmap_r:
+        gradient: ["#ffffff", "#e9e98f", "#e6c932", "#e69509", "#f35d15", "#d13a4f", "#802f95", "#4326b0", "#222270", "#000000"]
+      cubehelix:
+        gradient: ["#000000", "#1a1835", "#15464e", "#2b6f39", "#757b33", "#c17a70", "#d490c6", "#c3c1f2", "#cfebef", "#ffffff"]
+      cubehelix_r:
+        gradient: ["#ffffff", "#cfebef", "#c3c1f2", "#d490c6", "#c17a70", "#757b33", "#2b6f39", "#15464e", "#1a1835", "#000000"]
+      brg:
+        gradient: ["#0000ff", "#3800c7", "#70008f", "#aa0055", "#e2001d", "#e21d00", "#aa5500", "#708f00", "#38c700", "#00ff00"]
+      brg_r:
+        gradient: ["#00ff00", "#38c700", "#708f00", "#aa5500", "#e21d00", "#e2001d", "#aa0055", "#70008f", "#3800c7", "#0000ff"]
+      gist_rainbow:
+        gradient: ["#ff0029", "#ff6e00", "#f9ff00", "#5cff00", "#00ff3b", "#00ffd7", "#008fff", "#0e00ff", "#a700ff", "#ff00bf"]
+      gist_rainbow_r:
+        gradient: ["#ff00bf", "#a700ff", "#0e00ff", "#008fff", "#00ffd7", "#00ff3b", "#5cff00", "#f9ff00", "#ff6e00", "#ff0029"]
+      rainbow:
+        gradient: ["#8000ff", "#4856fb", "#10a2f0", "#2adddd", "#62fbc4", "#9cfba4", "#d4dd80", "#ffa256", "#ff562c", "#ff0000"]
+      rainbow_r:
+        gradient: ["#ff0000", "#ff562c", "#ffa256", "#d5dd7f", "#9cfba4", "#62fbc4", "#2bdddd", "#10a2f0", "#4756fb", "#8000ff"]
+      jet:
+        gradient: ["#000080", "#0000ff", "#0060ff", "#00d4ff", "#4dffaa", "#aaff4d", "#ffe600", "#ff7a00", "#ff1300", "#800000"]
+      jet_r:
+        gradient: ["#800000", "#ff1300", "#ff7a00", "#ffe600", "#aaff4d", "#4dffaa", "#00d4ff", "#0060ff", "#0000ff", "#000080"]
+      turbo:
+        gradient: ["#30123b", "#4661d6", "#37a8fa", "#1ae4b6", "#71fe5f", "#c8ef34", "#faba39", "#f56918", "#ca2a04", "#7a0403"]
+      turbo_r:
+        gradient: ["#7a0403", "#ca2a04", "#f56918", "#faba39", "#c8ef34", "#71fe5f", "#1ae4b6", "#37a8fa", "#4661d6", "#30123b"]
+      nipy_spectral:
+        gradient: ["#000000", "#6d009c", "#002fdd", "#00a4bb", "#009b13", "#00e200", "#ccf900", "#ffad00", "#e40000", "#cccccc"]
+      nipy_spectral_r:
+        gradient: ["#cccccc", "#e40000", "#ffad00", "#ccf900", "#00e200", "#009b13", "#00a4bb", "#002fdd", "#6d009c", "#000000"]
+      gist_ncar:
+        gradient: ["#000080", "#000eff", "#00ffe5", "#26f000", "#96ff1c", "#ffe900", "#ff7006", "#ff00c3", "#e074f1", "#fef8fe"]
+      gist_ncar_r:
+        gradient: ["#fef8fe", "#e074f1", "#ff00c3", "#ff7006", "#ffe900", "#96ff1c", "#26f000", "#00ffe5", "#000eff", "#000080"]
+      gist_yerg:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]
+      gist_yerg_r:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      gist_grey:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      gist_grey_r:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]
+      grey:
+        gradient: ["#000000", "#1c1c1c", "#383838", "#555555", "#717171", "#8e8e8e", "#aaaaaa", "#c7c7c7", "#e3e3e3", "#ffffff"]
+      grey_r:
+        gradient: ["#ffffff", "#e3e3e3", "#c7c7c7", "#aaaaaa", "#8e8e8e", "#717171", "#555555", "#383838", "#1c1c1c", "#000000"]

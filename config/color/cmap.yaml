@@ -1,0 +1,319 @@
+# =============================================================================
+# Matplotlib Colormaps — Complete Reference
+# Source: https://matplotlib.org/stable/users/explain/colors/colormaps.html
+# Total: 90 base colormaps × 2 (each has a reversed _r variant) = 180 entries
+#
+# Usage in Python:
+#   import yaml
+#   import matplotlib.pyplot as plt
+#
+#   with open("cmap.yaml") as f:
+#       cmaps = yaml.safe_load(f)
+#
+#   # Get a flat list of all cmap names (including _r reversed variants)
+#   all_cmaps = [name for group in cmaps["colormaps"].values() for name in group["maps"]]
+#
+#   # Get only base cmaps (no _r)
+#   base_cmaps = [name for group in cmaps["colormaps"].values() for name in group["maps"] if not name.endswith("_r")]
+#
+#   # Get cmaps by category
+#   diverging = cmaps["colormaps"]["diverging"]["maps"]
+#
+#   # Use a cmap
+#   cmap = plt.get_cmap(cmaps["colormaps"]["perceptually_uniform_sequential"]["maps"][0])
+# =============================================================================
+
+colormaps:
+
+  # ---------------------------------------------------------------------------
+  # PERCEPTUALLY UNIFORM SEQUENTIAL
+  # Ideal for most scientific data. Perceptually linear, colorblind-friendly.
+  # Best for: continuous data, heatmaps, expression matrices, coverage tracks.
+  # ---------------------------------------------------------------------------
+  perceptually_uniform_sequential:
+    description: >
+      Perceptually uniform sequential colormaps. Recommended default choice
+      for scientific data. Designed to be colorblind-friendly and print well
+      in greyscale.
+    recommended_for:
+      - gene expression heatmaps
+      - coverage/depth tracks
+      - continuous scalar fields
+      - publication figures (colorblind-safe)
+    maps:
+      - viridis          # default matplotlib; blue-green-yellow
+      - viridis_r
+      - plasma           # blue-pink-yellow; slightly brighter than viridis
+      - plasma_r
+      - inferno          # black-red-yellow; high contrast
+      - inferno_r
+      - magma            # black-purple-beige; similar to inferno
+      - magma_r
+      - cividis          # blue-yellow; fully colorblind-safe (deuteranopia)
+      - cividis_r
+
+  # ---------------------------------------------------------------------------
+  # SEQUENTIAL (ColorBrewer)
+  # Single-hue progressions. Good for ordered data with a meaningful zero.
+  # Best for: count data, p-values, enrichment scores.
+  # ---------------------------------------------------------------------------
+  sequential:
+    description: >
+      Sequential single-hue colormaps from ColorBrewer. Progress from light
+      (low) to dark (high). Good for data with a natural minimum near zero.
+    recommended_for:
+      - read counts
+      - p-value / FDR gradients
+      - enrichment scores
+      - ATAC-seq / ChIP-seq signal
+    maps:
+      - Greys
+      - Greys_r
+      - Grays            # alias for Greys
+      - Grays_r
+      - Purples
+      - Purples_r
+      - Blues
+      - Blues_r
+      - Greens
+      - Greens_r
+      - Oranges
+      - Oranges_r
+      - Reds
+      - Reds_r
+      - YlOrBr           # yellow-orange-brown
+      - YlOrBr_r
+      - YlOrRd           # yellow-orange-red
+      - YlOrRd_r
+      - OrRd             # orange-red
+      - OrRd_r
+      - PuRd             # purple-red
+      - PuRd_r
+      - RdPu             # red-purple
+      - RdPu_r
+      - BuPu             # blue-purple
+      - BuPu_r
+      - GnBu             # green-blue
+      - GnBu_r
+      - PuBu             # purple-blue
+      - PuBu_r
+      - YlGnBu           # yellow-green-blue
+      - YlGnBu_r
+      - PuBuGn           # purple-blue-green
+      - PuBuGn_r
+      - BuGn             # blue-green
+      - BuGn_r
+      - YlGn             # yellow-green
+      - YlGn_r
+
+  # ---------------------------------------------------------------------------
+  # SEQUENTIAL (Miscellaneous / Classic)
+  # Traditional sequential colormaps. Some are perceptually non-uniform.
+  # ---------------------------------------------------------------------------
+  sequential_2:
+    description: >
+      Classic sequential colormaps. Many are perceptually non-uniform — use
+      with caution in publications. Prefer perceptually_uniform_sequential
+      for most scientific use cases.
+    recommended_for:
+      - legacy/compatibility figures
+      - medical imaging (bone, hot)
+      - artistic/exploratory visualization
+    maps:
+      - binary           # white to black
+      - binary_r
+      - gist_yarg        # black to white (inverted gray)
+      - gist_yarg_r
+      - gist_gray        # gray scale
+      - gist_gray_r
+      - gray
+      - gray_r
+      - bone             # blue-tinted gray (medical)
+      - bone_r
+      - pink             # pastel pink-gray
+      - pink_r
+      - spring           # magenta-yellow
+      - spring_r
+      - summer           # green-yellow
+      - summer_r
+      - autumn           # red-yellow (classic)
+      - autumn_r
+      - winter           # blue-green
+      - winter_r
+      - cool             # cyan-magenta
+      - cool_r
+      - Wistia           # yellow-orange (high visibility)
+      - Wistia_r
+      - hot              # black-red-yellow-white
+      - hot_r
+      - afmhot           # atomic force microscope style
+      - afmhot_r
+      - gist_heat        # black-red-orange-white
+      - gist_heat_r
+      - copper           # black-copper
+      - copper_r
+
+  # ---------------------------------------------------------------------------
+  # DIVERGING
+  # Two contrasting hues meeting at a neutral center. 
+  # Best for: fold-change, log2FC, correlation, Z-scores, methylation.
+  # ---------------------------------------------------------------------------
+  diverging:
+    description: >
+      Diverging colormaps with a neutral midpoint. Ideal when data has a
+      meaningful center value (e.g., 0 for fold-change, 0.5 for methylation).
+    recommended_for:
+      - log2 fold-change heatmaps
+      - correlation matrices
+      - DNA methylation (0–1)
+      - Z-scores / standardized values
+      - differential expression
+    maps:
+      - PiYG             # pink-white-green
+      - PiYG_r
+      - PRGn             # purple-white-green
+      - PRGn_r
+      - BrBG             # brown-white-teal
+      - BrBG_r
+      - PuOr             # purple-white-orange
+      - PuOr_r
+      - RdGy             # red-white-gray (avoid for colorblind)
+      - RdGy_r
+      - RdBu             # red-white-blue (popular for DE)
+      - RdBu_r
+      - RdYlBu           # red-yellow-blue
+      - RdYlBu_r
+      - RdYlGn           # red-yellow-green (avoid for colorblind)
+      - RdYlGn_r
+      - Spectral         # red-orange-yellow-green-blue
+      - Spectral_r
+      - coolwarm         # blue-white-red (smooth)
+      - coolwarm_r
+      - bwr              # blue-white-red (sharp transitions)
+      - bwr_r
+      - seismic          # blue-white-red (seismology)
+      - seismic_r
+      - berlin           # blue-white-red (Scientific Colour Maps)
+      - berlin_r
+      - managua          # blue-rose (Scientific Colour Maps)
+      - managua_r
+      - vanimo           # red-white-blue (Scientific Colour Maps)
+      - vanimo_r
+
+  # ---------------------------------------------------------------------------
+  # CYCLIC
+  # Wraps around — start and end colors match.
+  # Best for: phase data, angles, periodic signals.
+  # ---------------------------------------------------------------------------
+  cyclic:
+    description: >
+      Cyclic colormaps where the start and end colors match. Designed for
+      periodic data (angles, phases, time-of-day).
+    recommended_for:
+      - phase data (Hi-C, NMR)
+      - angular/directional data
+      - circular genomic coordinates
+    maps:
+      - twilight          # dark blue → white → dark red → dark blue
+      - twilight_r
+      - twilight_shifted  # midpoint shifted (white center)
+      - twilight_shifted_r
+      - hsv               # full hue circle (perceptually non-uniform)
+      - hsv_r
+
+  # ---------------------------------------------------------------------------
+  # QUALITATIVE
+  # Distinct colors for categorical data. Not ordered.
+  # Best for: cluster labels, cell types, sample groups, annotations.
+  # ---------------------------------------------------------------------------
+  qualitative:
+    description: >
+      Qualitative colormaps for categorical/nominal data. Colors are visually
+      distinct without implying order or magnitude.
+    recommended_for:
+      - cell type annotations (scRNA-seq)
+      - cluster labels (UMAP, t-SNE)
+      - sample/condition groups
+      - genomic feature categories
+    maps:
+      - Pastel1           # 9 pastel colors
+      - Pastel1_r
+      - Pastel2           # 8 pastel colors
+      - Pastel2_r
+      - Paired            # 12 paired colors (light/dark per hue)
+      - Paired_r
+      - Accent            # 8 colors, mixed saturation
+      - Accent_r
+      - Dark2             # 8 dark, saturated colors
+      - Dark2_r
+      - Set1              # 9 vivid colors (red, blue, green…)
+      - Set1_r
+      - Set2              # 8 muted colors
+      - Set2_r
+      - Set3              # 12 pastel colors
+      - Set3_r
+      - tab10             # 10 Tableau colors (matplotlib default categorical)
+      - tab10_r
+      - tab20             # 20 Tableau colors (light+dark pairs)
+      - tab20_r
+      - tab20b            # 20 colors, blue/green/red/purple families
+      - tab20b_r
+      - tab20c            # 20 colors, softer variant
+      - tab20c_r
+
+  # ---------------------------------------------------------------------------
+  # MISCELLANEOUS
+  # Various colormaps for specific use cases or legacy purposes.
+  # Many are perceptually non-uniform — use with awareness.
+  # ---------------------------------------------------------------------------
+  miscellaneous:
+    description: >
+      Miscellaneous colormaps for specialized or legacy use cases. Many are
+      perceptually non-uniform. Generally not recommended for publications
+      unless you have a specific reason.
+    recommended_for:
+      - terrain/topographic data (terrain, ocean, gist_earth)
+      - rainbow-style visualization (jet — legacy, avoid if possible)
+      - high-contrast scientific (turbo, nipy_spectral)
+      - artistic/exploratory
+    maps:
+      - flag              # repeating red-white-blue-black (not for data)
+      - flag_r
+      - prism             # repeating spectrum (not for data)
+      - prism_r
+      - ocean             # green-blue (topographic ocean)
+      - ocean_r
+      - gist_earth        # terrain (green-brown-white)
+      - gist_earth_r
+      - terrain           # blue-green-brown-white-grey
+      - terrain_r
+      - gist_stern        # black-red-white with steps
+      - gist_stern_r
+      - gnuplot           # black-red-yellow-white
+      - gnuplot_r
+      - gnuplot2          # black-blue-pink-yellow
+      - gnuplot2_r
+      - CMRmap            # black-blue-green-orange-white
+      - CMRmap_r
+      - cubehelix         # helical RGB path (perceptually decent)
+      - cubehelix_r
+      - brg               # blue-red-green
+      - brg_r
+      - gist_rainbow      # full rainbow
+      - gist_rainbow_r
+      - rainbow           # spectral rainbow
+      - rainbow_r
+      - jet               # blue-cyan-yellow-red (legacy, avoid)
+      - jet_r
+      - turbo             # improved rainbow (Google); better than jet
+      - turbo_r
+      - nipy_spectral     # black-spectral-white
+      - nipy_spectral_r
+      - gist_ncar         # multicolor (atmospheric science)
+      - gist_ncar_r
+      - gist_yerg         # yellow-green ramp
+      - gist_yerg_r
+      - gist_grey         # alias for gist_gray
+      - gist_grey_r
+      - grey              # alias for gray
+      - grey_r
