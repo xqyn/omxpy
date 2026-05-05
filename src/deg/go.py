@@ -28,15 +28,18 @@ ONTOLOGY = {
     "CC": "Cellular Component",
     "BP": "Biological Process",
 }
-
+ 
 _GENE_SETS = {
     "MF": "GO_Molecular_Function_2023",
     "CC": "GO_Cellular_Component_2023",
     "BP": "GO_Biological_Process_2023",
 }
-
+ 
 # valid choices for the x-axis metric
-_XAXIS_OPTIONS = ("OddsRatio", "GeneRatio", "CombinedScore")
+_XAXIS_OPTIONS  = ("OddsRatio", "GeneRatio", "CombinedScore")
+_SORT_OPTIONS   = ("CombinedScore", "p.adjust", "OddsRatio", "GeneRatio")
+_ORGANISM_OPTIONS = ("human", "mouse")
+ 
 
 # # ── module info ───────────────────────────────────────────────────────────────
 # print(
@@ -221,7 +224,7 @@ def plot_go_terms(
     ont: str = "MF",
     xaxis: str = "OddsRatio",
     pvalue_cutoff: float = 0.05,
-    figure_dir: str | None = None,
+    fig_dir: str | None = None,
     figsize: tuple[int, int] = (10, 7),
     wrap_width: int = 50,
     fig_format: tuple[str, ...] = ("png", "pdf"),
@@ -240,7 +243,7 @@ def plot_go_terms(
             "GeneRatio"           — fraction of query genes in term, 0–1.
             "CombinedScore"       — Enrichr combined score (ln p × z-score).
         pvalue_cutoff (float): Shown in colorbar label.
-        figure_dir (str | None): Save directory; None skips saving.
+        fig_dir (str | None): Save directory; None skips saving.
         figsize (tuple[int, int]): Figure size as (width, height) in inches.
             Defaults to (10, 7).
         wrap_width (int): Character width for y-axis label wrapping.
@@ -315,20 +318,25 @@ def plot_go_terms(
     # UP / DOWN badges (only when both directions present)
     has_up   = (df["plot_val"] > 0).any()
     has_down = (df["plot_val"] < 0).any()
-    if has_up and has_down:
-        xmax    = df["plot_val"].max() * 1.25
-        xmin    = df["plot_val"].min() * 1.25
+    if has_up or has_down:
+        #xmax    = df["plot_val"].max() * 1.25
+        #xmin    = df["plot_val"].min() * 1.25
+        xmax    = 20
+        xmin    = -20
         badge_y = -0.9
-        ax.annotate(
-            "UP", xy=(xmax * 0.5, badge_y), fontsize=8, color="white",
-            fontweight="bold", ha="center",
-            bbox=dict(boxstyle="round,pad=0.3", fc="#08519C", ec="none"),
-        )
-        ax.annotate(
-            "DOWN", xy=(xmin * 0.5, badge_y), fontsize=8, color="white",
-            fontweight="bold", ha="center",
-            bbox=dict(boxstyle="round,pad=0.3", fc="#F48D79", ec="none"),
-        )
+        
+        if has_up:
+            ax.annotate(
+                "UP", xy=(xmax * 0.5, badge_y), fontsize=8, color="white",
+                fontweight="bold", ha="center",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#08519C", ec="none"),
+            )
+        if has_down:
+            ax.annotate(
+                "DOWN", xy=(xmin * 0.5, badge_y), fontsize=8, color="white",
+                fontweight="bold", ha="center",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#F48D79", ec="none"),
+            )
 
     # ── axis labels & formatting ──────────────────────────────────────────────
     xlabel_map = {
@@ -365,14 +373,14 @@ def plot_go_terms(
         )
     )
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     # ── save ──────────────────────────────────────────────────────────────────
-    if figure_dir is not None:
-        os.makedirs(figure_dir, exist_ok=True)
+    if fig_dir is not None:
+        os.makedirs(fig_dir, exist_ok=True)
         for ext in fig_format:
             fp = os.path.join(
-                figure_dir,
+                fig_dir,
                 f"{setting}_{ont}_pv{pvalue_cutoff}_{xaxis}_go_term.{ext}",
             )
             fig.savefig(fp, dpi=320, bbox_inches="tight", facecolor="white")
@@ -394,13 +402,13 @@ def go_analysis(
     sort_by: str = "CombinedScore",
     xaxis: str = "OddsRatio",
     go_id: bool = False,
-    figure_dir: str | None = "figures/",
+    fig_dir: str | None = "figures/",
     figsize: tuple[int, int] = (10, 7),
     wrap_width: int = 50,
     fig_format: tuple[str, ...] = ("png", "pdf"),
-) -> dict[str, plt.Figure | None]:
+) -> tuple[dict[str, plt.Figure | None], dict[str, pd.DataFrame]]:
     """Run GO enrichment for UP and DOWN genes across one or more ontologies.
-
+ 
     Args:
         setting (str): Label used in titles and filenames.
         ont (str | tuple[str, ...]): Ontology key(s) from {"MF", "CC", "BP"}.
@@ -409,8 +417,8 @@ def go_analysis(
         de_down (list[str] | None): Downregulated gene symbols.
         organism (str): "human" or "mouse".
         background (list[str] | None): Background gene universe.
-            When None, Enrichr uses its default background and returns
-            Overlap/GeneRatio. When supplied, Enrichr returns Odds Ratio.
+            None → Enrichr default background → returns Overlap/GeneRatio.
+            Supplied → Enrichr returns Odds Ratio instead.
         pvalue_cutoff (float): Adjusted p-value threshold.
         top (int): Top N terms per direction per plot.
         sort_by (str): Ranking metric used to select top-N terms.
@@ -419,25 +427,29 @@ def go_analysis(
         xaxis (str): Metric to plot on the x-axis.
             One of "OddsRatio" (default), "GeneRatio", "CombinedScore".
         go_id (bool): Append GO ID to term description when available.
-        figure_dir (str | None): Output directory for saved figures.
+        fig_dir (str | None): Output directory for saved figures.
             None skips saving. Defaults to "figures/".
         figsize (tuple[int, int]): Figure size as (width, height) in inches.
             Defaults to (10, 7).
         wrap_width (int): Character width for y-axis label wrapping.
         fig_format (tuple[str, ...]): File format(s) to save,
             e.g. ("png", "pdf").
-
+ 
     Returns:
-        dict[str, plt.Figure | None]: Ontology key mapped to Figure,
-            or None if no terms were found for that ontology.
-
+        tuple:
+            figures (dict[str, plt.Figure | None]): Ontology key mapped to
+                Figure, or None if no terms were found.
+            tables (dict[str, pd.DataFrame]): Ontology key mapped to the
+                combined GO dataframe used for plotting, or empty DataFrame
+                if no terms were found.
+ 
     Raises:
         ValueError: If neither de_up nor de_down is provided,
                     or if xaxis is not a valid option.
         TypeError: If de_up or de_down are not lists.
-
+ 
     Example:
-        >>> figs = go_analysis(
+        >>> figs, tables = go_analysis(
         ...     setting="Fibroblast_vs_Epithelial",
         ...     de_up=up_genes,
         ...     de_down=down_genes,
@@ -446,8 +458,13 @@ def go_analysis(
         ...     xaxis="OddsRatio",
         ...     sort_by="CombinedScore",
         ...     figsize=(12, 8),
-        ...     figure_dir="output/go/",
+        ...     fig_dir="output/go/",
         ... )
+        >>> tables["MF"]   # combined GO dataframe for Molecular Function
+        >>> tables["BP"]   # combined GO dataframe for Biological Process
+        >>> for ont_key, df in tables.items():
+        ...     if not df.empty:
+        ...         df.to_csv(f"go_{ont_key}.csv", index=False)
     """
     if de_up is None and de_down is None:
         raise ValueError("Provide at least one of de_up or de_down.")
@@ -457,29 +474,32 @@ def go_analysis(
         raise TypeError("de_down must be a list of gene symbols.")
     if xaxis not in _XAXIS_OPTIONS:
         raise ValueError(f"xaxis must be one of {_XAXIS_OPTIONS}.")
-
+    if sort_by not in _SORT_OPTIONS:
+        raise ValueError(f"sort_by must be one of {_SORT_OPTIONS}.")
+ 
     if isinstance(ont, str):
         ont = (ont,)
-
+ 
     figures: dict[str, plt.Figure | None] = {}
-
+    tables:  dict[str, pd.DataFrame]      = {}
+ 
     for o in ont:
         if o not in ONTOLOGY:
             warnings.warn(f"Unknown ontology '{o}', skipping. Use MF, CC, or BP.")
             continue
-
+            
         print(f"\n[ GO Analysis ] {setting} — {ONTOLOGY[o]}")
-        print(f"  gene set    : {_GENE_SETS[o]}")
-        print(f"  organism    : {organism}")
-        print(f"  background  : {'custom (' + str(len(background)) + ' genes)' if background is not None else 'Enrichr default'}")
-        print(f"  UP          : {len(de_up)   if de_up   else 0} genes")
-        print(f"  DOWN        : {len(de_down) if de_down else 0} genes")
-        print(f"  top N       : {top}  |  sort_by : {sort_by}")
-        print(f"  xaxis       : {xaxis}  |  pvalue cutoff : {pvalue_cutoff}")
-        print(f"  figsize     : {figsize}  |  fig_format : {fig_format}")
-        print(f"  figure_dir  : {figure_dir if figure_dir else 'not saving'}")
-        print("  " + "─" * 40)
-
+        print(f"  gene set     : {_GENE_SETS[o]}")
+        print(f"  organism     : {organism}")
+        print(f"  background   : {'custom (' + str(len(background)) + ' genes)' if background is not None else 'Enrichr default'}")
+        print(f"  UP           : {len(de_up)   if de_up   else 0} genes")
+        print(f"  DOWN         : {len(de_down) if de_down else 0} genes")
+        print(f"  top N        : {top}  |  sort_by : {sort_by}")
+        print(f"  xaxis        : {xaxis}  |  pvalue cutoff : {pvalue_cutoff}")
+        print(f"  figsize      : {figsize}  |  fig_format : {fig_format}")
+        print(f"  fig_dir   : {fig_dir if fig_dir else 'not saving'}")
+        print("  " + "─" * 44)
+ 
         go_up = go_enrichment(
             genes=list(de_up) if de_up else [],
             regulation="Upregulated",
@@ -496,7 +516,7 @@ def go_analysis(
             background=background,
             pvalue_cutoff=pvalue_cutoff,
         )
-
+ 
         go_combine = combine_go_data(
             go_up=go_up,
             go_down=go_down,
@@ -505,26 +525,30 @@ def go_analysis(
             go_id=go_id,
             sort_by=sort_by,
         )
-
+ 
         if go_combine.empty:
             print(f"  No valid GO terms for {ONTOLOGY[o]}. Skipping plot.")
             figures[o] = None
+            tables[o]  = pd.DataFrame()
             continue
-
+ 
+        print(f"  terms found  : UP = {(go_combine['Regulation'] == 'Upregulated').sum()}  |  DOWN = {(go_combine['Regulation'] == 'Downregulated').sum()}")
+ 
         fig = plot_go_terms(
             go_combine=go_combine,
             setting=setting,
             ont=o,
             xaxis=xaxis,
             pvalue_cutoff=pvalue_cutoff,
-            figure_dir=figure_dir,
+            fig_dir=fig_dir,
             figsize=figsize,
             wrap_width=wrap_width,
             fig_format=fig_format,
         )
-
+ 
         figures[o] = fig
+        tables[o]  = go_combine
         print(f"  Done — {ONTOLOGY[o]}")
-        print("  " + "-" * 40)
-
-    return figures
+        print("  " + "─" * 44)
+ 
+    return figures, tables
