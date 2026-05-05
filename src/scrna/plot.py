@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import math
 from typing import Dict, List, Optional, Sequence, Union
 
@@ -20,33 +21,22 @@ def plot_umap_by_category(
     figsize=(6, 5), cmap='tab20',
     legend=True, legend_markerscale=20,
     xlabel='UMAP 1', ylabel='UMAP 2',
-    spines=False, legend_order=None):
+    spines=False, legend_order=None,
+    label_cats=False, label_fontsize=None, label_fontweight='bold',
+    label_outline=True, label_arrow=False,
+    label_offset=(0.5, 0.5),   # (x, y) offset in UMAP coordinate units
+):
     """
-    Plot UMAP scatter colored by a categorical column.
-
-    Args:
-        adata:                AnnData object with obsm['X_umap'] and obs[col]
-        col:                  Column in adata.obs to color by (default: 'sample')
-        color_map:            Dict mapping category -> color. Auto-generated if None.
-        ax:                   Matplotlib Axes object. Creates new figure if None.
-        title:                Plot title. Defaults to col name.
-        dot_size:             Size of scatter points (default: 0.05)
-        text_size:            Font size for labels, title, and legend (default: 5)
-        alpha:                Transparency of points (default: 0.75)
-        figsize:              Figure size as (width, height) (default: (6, 5))
-        cmap:                 Colormap name for auto color generation (default: 'tab20')
-        legend:               Whether to show legend (default: True)
-        legend_markerscale:   Scale of legend markers (default: 20)
-        xlabel:               X-axis label (default: 'UMAP 1')
-        ylabel:               Y-axis label (default: 'UMAP 2')
-        spines:               Whether to show plot spines/borders (default: False)
-        legend_order:         List of categories for legend order. 
-                              'auto' to sort numerically if possible (default: None = alphabetical)
+    ...
+    label_cats:       Show category name at median centroid (default: False)
+    label_fontsize:   Font size for category labels; defaults to text_size
+    label_fontweight: Font weight for category labels (default: 'bold')
+    label_outline:    Add white outline around labels for readability (default: True)
     """
     import matplotlib.pyplot as plt
+    import matplotlib.patheffects as pe
     import pandas as pd
 
-    # Build UMAP dataframe
     umap_df = pd.DataFrame(
         adata.obsm['X_umap'],
         columns=['umap1', 'umap2'],
@@ -56,12 +46,10 @@ def plot_umap_by_category(
 
     categories = sorted(umap_df[col].unique())
 
-    # Auto-generate color map if not provided
     if color_map is None:
         _cmap = plt.colormaps.get_cmap(cmap).resampled(len(categories))
         color_map = {cat: _cmap(i) for i, cat in enumerate(categories)}
 
-    # Create axes if not provided
     if ax is None:
         _, ax = plt.subplots(figsize=figsize)
 
@@ -74,10 +62,46 @@ def plot_umap_by_category(
             label=cat,
             s=dot_size,
             alpha=alpha,
-            color=color_map[cat]
+            color=color_map[cat],
         )
 
-    # Axes formatting
+        if label_cats:
+            cx = cat_umap['umap1'].median()
+            cy = cat_umap['umap2'].median()
+            fs = label_fontsize if label_fontsize is not None else text_size
+
+            if label_arrow:
+                txt = ax.annotate(
+                    str(cat),
+                    xy=(cx, cy),                        # arrow tip → centroid
+                    xytext=(cx + label_offset[0],
+                            cy + label_offset[1]),      # text position
+                    fontsize=fs,
+                    fontweight=label_fontweight,
+                    color=color_map[cat],
+                    ha='center', va='center',
+                    zorder=5,
+                    arrowprops=dict(
+                        arrowstyle='-',                 # plain line, no arrowhead
+                        color=color_map[cat],
+                        lw=0.8,
+                    ),
+                )
+            else:
+                txt = ax.text(
+                    cx, cy, str(cat),
+                    fontsize=fs,
+                    fontweight=label_fontweight,
+                    ha='center', va='center',
+                    color=color_map[cat],
+                    zorder=5,
+                )
+
+            if label_outline:
+                txt.set_path_effects([
+                    pe.withStroke(linewidth=2, foreground='black')
+                ])
+
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlabel(xlabel, size=text_size)
@@ -89,7 +113,6 @@ def plot_umap_by_category(
         spine.set_visible(spines)
 
     if legend:
-        # Determine legend order
         if legend_order == 'auto':
             try:
                 order = sorted(categories, key=lambda x: float(x))
@@ -100,11 +123,10 @@ def plot_umap_by_category(
         else:
             order = categories
 
-        # Reorder handles/labels
         handles, labels = ax.get_legend_handles_labels()
         label_to_handle = dict(zip(labels, handles))
         ordered_handles = [label_to_handle[o] for o in order if o in label_to_handle]
-        ordered_labels = [o for o in order if o in label_to_handle]
+        ordered_labels  = [o for o in order if o in label_to_handle]
 
         ax.legend(
             ordered_handles, ordered_labels,
@@ -112,7 +134,7 @@ def plot_umap_by_category(
             fontsize=text_size,
             bbox_to_anchor=(1, 1),
             loc='upper left',
-            frameon=False
+            frameon=False,
         )
 
     return ax
@@ -269,11 +291,12 @@ def plot_umap_split(
     fg_alpha: float = 0.75,
     title_fontsize: int = 7,
     legend_fontsize: int = 6,
+    axis_show: bool = True,
     panel_width: float = 2.88,
     panel_height: float = 2.75,
     dpi: int = 480,
     obsm_key: str = "X_umap",
-    save_path: Optional[str] = None,
+    fig_dir: Optional[str] = None,
 ) -> plt.Figure:
     """
     Plot UMAP coloured by a metadata column, with an optional per-condition
@@ -309,6 +332,8 @@ def plot_umap_split(
         Per-panel title font size (split mode).
     legend_fontsize : int
         Legend font size (single mode).
+    axis_show: bool
+        Show axis or not
     panel_width : float
         Panel width in inches.
     panel_height : float
@@ -317,7 +342,7 @@ def plot_umap_split(
         Figure DPI.
     obsm_key : str
         Key in adata.obsm for 2-D coordinates.
-    save_path : str, optional
+    fig_dir : str, optional
         Saves figure to this path if provided.
 
     Returns
@@ -374,8 +399,9 @@ def plot_umap_split(
         )
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_xlabel("UMAP 1", fontsize=8)
-        ax.set_ylabel("UMAP 2", fontsize=8)
+        if axis_show:
+            ax.set_xlabel("UMAP 1", fontsize=8)
+            ax.set_ylabel("UMAP 2", fontsize=8)
         ax.set_title(col, fontsize=title_fontsize + 1)
         plt.tight_layout()
 
@@ -440,12 +466,18 @@ def plot_umap_split(
             ax.set_aspect("equal")
             ax.set_frame_on(False)
 
-        fig.supxlabel("UMAP 1", fontsize=8)
-        fig.supylabel("UMAP 2", fontsize=8)
+        if axis_show:
+            fig.supxlabel("UMAP 1", fontsize=8)
+            fig.supylabel("UMAP 2", fontsize=8)
+            # ax.set_xlabel("UMAP 1", fontsize=8)
+            # ax.set_ylabel("UMAP 2", fontsize=8)
+       
         plt.tight_layout()
 
-    if save_path:
-        plt.savefig(save_path, bbox_inches="tight")
+    if fig_dir:
+        os.makedirs(fig_dir, exist_ok=True)
+        save_path = f'{fig_dir}/umap_cond_{col}.png'
+        plt.savefig(save_path, bbox_inches="tight", dpi=dpi)
 
     return fig
 
@@ -665,5 +697,134 @@ def plot_violin(
     if show:
         plt.show()
         return None
+
+    return fig
+
+
+# ── plot_dotplot ──────────────────────────────────────────────────────────────
+def plot_dotplot(
+    adata: sc.AnnData,
+    up_genes: list[str],
+    down_genes: list[str],
+    groupby: str,
+    groups: list[str] | None = None,
+    setting: str = "dotplot",
+    n_genes: int = 10,
+    use_raw: bool = True,
+    cmap: str = "Reds",
+    standard_scale: str = "var",
+    colorbar_title: str = "Scaled\nexpression",
+    dot_max: float = 1.0,
+    dot_min: float = 0.05,
+    smallest_dot: float = 1.0,
+    figsize: tuple[int, int] = (6, 4),
+    swap_axes: bool = False,
+    dendrogram: bool = False,
+    dot_edge_color: str = "black",
+    dot_edge_lw: float = 1.0,
+    var_group_rotation: float = 0,
+    fig_dir: str | None = None,
+    dpi: int = 150,
+    sample_design: list[str] | None = None,
+    color_map: dict[str, str] | None = None,
+    fig_format: tuple[str, ...] = ("png",),
+) -> plt.Figure:
+    """Dotplot of top differentially expressed genes grouped by UP/DOWN.
+
+    Args:
+        adata (sc.AnnData): Annotated data matrix.
+        up_genes (list[str]): Ordered list of upregulated gene names.
+        down_genes (list[str]): Ordered list of downregulated gene names.
+        groupby (str): Column in ``adata.obs`` to group cells by.
+        groups (list[str] | None): Subset of groupby categories to plot.
+                               Shows all if None. Defaults to None.
+        setting (str): Filename prefix used when saving. Defaults to
+            ``"dotplot"``.
+        n_genes (int): Number of top genes to show per group. Defaults to
+            ``10``.
+        use_raw (bool): Whether to use ``adata.raw``. Defaults to ``True``.
+        cmap (str): Colormap for expression. Defaults to ``"Reds"``.
+        standard_scale (str): Axis to standardise across — ``"var"`` or
+            ``"group"``. Defaults to ``"var"``.
+        colorbar_title (str): Label for the colorbar. Defaults to
+            ``"Scaled\\nexpression"``.
+        dot_max (float): Maximum dot size. Defaults to ``1.0``.
+        dot_min (float): Minimum dot size. Defaults to ``0.05``.
+        smallest_dot (float): Minimum rendered dot size in pt. Defaults to
+            ``1.0``.
+        figsize (tuple[int, int]): Figure dimensions as (width, height) in
+            inches. Defaults to ``(6, 4)``.
+        swap_axes (bool): Swap genes and groups axes. Defaults to ``False``.
+        dendrogram (bool): Show dendrogram. Defaults to ``False``.
+        dot_edge_color (str): Dot border color. Defaults to ``"black"``.
+        dot_edge_lw (float): Dot border line width. Defaults to ``1.0``.
+        var_group_rotation (float): Rotation of group labels in degrees.
+            Defaults to ``0``.
+        fig_dir (str | None): Directory to save the figure; skips saving
+            when ``None``. Defaults to ``None``.
+        dpi (int): Resolution for saved figure. Defaults to ``150``.
+        fig_format (tuple[str, ...]): File format(s) to save, e.g.
+            ``("png", "pdf")``. Defaults to ``("png",)``.
+        sample_design (list[str] | None): Sample order for ``add_totals``.
+            Requires ``color_map``. Defaults to ``None``.
+        color_map (dict[str, str] | None): Mapping of sample names to colors
+            for ``add_totals``. Requires ``sample_design``. Defaults to
+            ``None``.
+    Returns:
+        plt.Figure: The rendered matplotlib figure.
+
+    Raises:
+        ValueError: If ``n_genes`` exceeds the length of either gene list.
+    """
+    if groups is not None:
+        adata = adata[adata.obs[groupby].isin(groups)].copy()
+
+    if n_genes > len(up_genes) or n_genes > len(down_genes):
+        raise ValueError(
+            f"n_genes={n_genes} exceeds the length of up_genes "
+            f"({len(up_genes)}) or down_genes ({len(down_genes)})."
+        )
+    gene_groups = {
+        "UP": up_genes[:n_genes],
+        "DOWN": down_genes[:n_genes],
+    }
+
+    dp = sc.pl.dotplot(
+        adata,
+        gene_groups,
+        var_group_rotation=var_group_rotation,
+        groupby=groupby,
+        #categories_order=groups,
+        use_raw=use_raw,
+        cmap=cmap,
+        standard_scale=standard_scale,
+        colorbar_title=colorbar_title,
+        dot_max=dot_max,
+        dot_min=dot_min,
+        smallest_dot=smallest_dot,
+        figsize=figsize,
+        swap_axes=swap_axes,
+        dendrogram=dendrogram,
+        return_fig=True,
+    )
+    dp.style(
+        dot_edge_color=dot_edge_color,
+        dot_edge_lw=dot_edge_lw,
+    )
+
+    if sample_design is not None and color_map is not None:
+        dp.add_totals(color=[color_map[c] for c in sample_design])
+
+    #dp.make_figure()
+    fig = dp.get_axes()["mainplot_ax"].get_figure()
+
+    if fig_dir is not None:
+        os.makedirs(fig_dir, exist_ok=True)
+        for fmt in fig_format:
+            fig.savefig(
+                f"{fig_dir}/{setting}_dotplot.{fmt}",
+                dpi=dpi,
+                bbox_inches="tight",
+            )
 
     return fig
