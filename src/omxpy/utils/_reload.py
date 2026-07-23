@@ -10,6 +10,22 @@ import inspect
 import hashlib
 import time
 
+from pathlib import Path
+import yaml
+from box import Box
+
+def load_config(config_path='./config/config.yaml'):
+    """Load (or reload) the YAML config as a Box and update sys.path."""
+    cfg = Box(yaml.safe_load(open(config_path)), default_box=True)
+
+    omxpy_path = cfg.dir.omxpy
+    if omxpy_path and omxpy_path not in sys.path:
+        sys.path.append(omxpy_path)
+
+    return cfg
+
+#cfg = load_config()
+
 _last_reload = {
     "obj_name"    : None,
     "module_name" : None,

@@ -13,131 +13,287 @@ import pandas as pd
 import scanpy as sc
 import seaborn as sns
 
+import math
+import os
+from typing import Optional, Union
 
+import matplotlib.patheffects as pe
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from pathlib import Path
 
-def plot_umap_by_category(
-    adata, col='sample', color_map=None, ax=None, title=None,
-    dot_size=0.05, text_size=5, alpha=0.75,
-    figsize=(6, 5), cmap='tab20',
-    legend=True, legend_markerscale=20,
-    xlabel='UMAP 1', ylabel='UMAP 2',
-    spines=False, legend_order=None,
-    label_cats=False, label_fontsize=None, label_fontweight='bold',
-    label_outline=True, label_arrow=False,
-    label_offset=(0.5, 0.5),   # (x, y) offset in UMAP coordinate units
-):
+def _draw_panel(
+    ax: Axes,
+    udf: pd.DataFrame,
+    col: str,
+    cats: list,
+    color_map: dict,
+    dot_size: float,
+    alpha: float,
+    bg_alpha: Optional[float],
+    background: bool,
+    bg_color: str = "silver",
+    label_cats: bool = False,
+    label_fontsize: float = 6,
+    label_fontweight: str = "bold",
+    label_outline: bool = True,
+    label_arrow: bool = False,
+    label_offset: tuple = (0.5, 0.5),
+) -> None:
+    """Draw one UMAP panel: optional grey context layer + colored category scatter.
+
+    Used internally by `plot_umap` for both the single-panel view (background=False)
+    and each facet of the split grid (background=True). Not part of the public API.
+
+    Args:
+        ax: Matplotlib Axes to draw into.
+        udf: DataFrame with columns ['u1', 'u2', col] — UMAP coords + category labels.
+        col: Column in `udf` used for category masking/coloring.
+        cats: Categories to plot on this axes (all categories for single panel,
+            one category for a split facet).
+        color_map: Mapping {category: color} for foreground points/labels.
+        dot_size: Scatter marker size (matplotlib `s=`).
+        alpha: Foreground marker opacity.
+        bg_alpha: Background marker opacity. Required if `background=True`.
+        background: If True, first plot all cells in `bg_color` for spatial context,
+            then overlay only `cats` in color. If False, plot only `cats`.
+        bg_color: Color for the background context layer. Ignored if background=False.
+        label_cats: If True, annotate each category's centroid with its name.
+        label_fontsize: Font size for centroid labels.
+        label_fontweight: Font weight for centroid labels.
+        label_outline: If True, add a white/black stroke outline behind labels
+            for readability against variable backgrounds.
+        label_arrow: If True, offset the label from the centroid and connect
+            with a thin line (avoids label overlapping points). If False,
+            place the label directly at the centroid.
+        label_offset: (x, y) offset in UMAP coordinate units, used only when
+            `label_arrow=True`.
+
+    Returns:
+        None. Mutates `ax` in place.
     """
-    ...
-    label_cats:       Show category name at median centroid (default: False)
-    label_fontsize:   Font size for category labels; defaults to text_size
-    label_fontweight: Font weight for category labels (default: 'bold')
-    label_outline:    Add white outline around labels for readability (default: True)
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib.patheffects as pe
-    import pandas as pd
+    u1, u2 = udf["u1"].values, udf["u2"].values
 
-    umap_df = pd.DataFrame(
-        adata.obsm['X_umap'],
-        columns=['umap1', 'umap2'],
-        index=adata.obs.index
-    )
-    umap_df[col] = adata.obs[col]
+    if background:
+        ax.scatter(u1, u2, s=dot_size, c=bg_color, alpha=bg_alpha,
+                   rasterized=True, linewidths=0)
 
-    categories = sorted(umap_df[col].unique())
-
-    if color_map is None:
-        _cmap = plt.colormaps.get_cmap(cmap).resampled(len(categories))
-        color_map = {cat: _cmap(i) for i, cat in enumerate(categories)}
-
-    if ax is None:
-        _, ax = plt.subplots(figsize=figsize)
-
-    for cat in categories:
-        mask = umap_df[col] == cat
-        cat_umap = umap_df[mask]
-        ax.scatter(
-            cat_umap['umap1'],
-            cat_umap['umap2'],
-            label=cat,
-            s=dot_size,
-            alpha=alpha,
-            color=color_map[cat],
-        )
+    for cat in cats:
+        mask = (udf[col] == cat).values
+        ax.scatter(u1[mask], u2[mask], s=dot_size, alpha=alpha,
+                   color=color_map[cat], label=cat, rasterized=True,
+                   linewidths=0)
 
         if label_cats:
-            cx = cat_umap['umap1'].median()
-            cy = cat_umap['umap2'].median()
-            fs = label_fontsize if label_fontsize is not None else text_size
-
+            cx, cy = udf.loc[mask, "u1"].median(), udf.loc[mask, "u2"].median()
             if label_arrow:
                 txt = ax.annotate(
-                    str(cat),
-                    xy=(cx, cy),                        # arrow tip → centroid
-                    xytext=(cx + label_offset[0],
-                            cy + label_offset[1]),      # text position
-                    fontsize=fs,
-                    fontweight=label_fontweight,
-                    color=color_map[cat],
-                    ha='center', va='center',
-                    zorder=5,
-                    arrowprops=dict(
-                        arrowstyle='-',                 # plain line, no arrowhead
-                        color=color_map[cat],
-                        lw=0.8,
-                    ),
+                    str(cat), xy=(cx, cy),
+                    xytext=(cx + label_offset[0], cy + label_offset[1]),
+                    fontsize=label_fontsize, fontweight=label_fontweight,
+                    color=color_map[cat], ha="center", va="center", zorder=5,
+                    arrowprops=dict(arrowstyle="-", color=color_map[cat], lw=0.8),
                 )
             else:
-                txt = ax.text(
-                    cx, cy, str(cat),
-                    fontsize=fs,
-                    fontweight=label_fontweight,
-                    ha='center', va='center',
-                    color=color_map[cat],
-                    zorder=5,
-                )
-
+                txt = ax.text(cx, cy, str(cat), fontsize=label_fontsize,
+                              fontweight=label_fontweight, ha="center",
+                              va="center", color=color_map[cat], zorder=5)
             if label_outline:
-                txt.set_path_effects([
-                    pe.withStroke(linewidth=2, foreground='black')
-                ])
+                txt.set_path_effects([pe.withStroke(linewidth=2, foreground="black")])
 
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_xlabel(xlabel, size=text_size)
-    ax.set_ylabel(ylabel, size=text_size)
-    ax.set_title(title or col, size=text_size)
-    ax.set_aspect('equal')
 
-    for spine in ax.spines.values():
-        spine.set_visible(spines)
+def plot_umap(
+    adata,
+    col: str,
+    conditions: Optional[list] = None,
+    color_map: Optional[dict] = None,
+    palette: str = "tab20",
+    obsm_key: str = "X_umap",
+    split: bool = False,
+    ax: Optional[Axes] = None,          # only used when split=False
+    ncol: int = 3,
+    blank_pos: Optional[int] = None,
+    dot_size: float = 2.0,
+    alpha: float = 0.75,
+    bg_alpha: Optional[float] = None,   # split mode only; auto-scaled if None
+    bg_color: str = "silver",           # split mode only
+    text_size: float = 6,
+    title: Optional[str] = None,
+    title_fontsize: Optional[int] = None,
+    legend: bool = True,
+    legend_markerscale: float = 5,
+    legend_order: Optional[Union[list, str]] = None,
+    xlabel: str = "UMAP 1",
+    ylabel: str = "UMAP 2",
+    axis_show: bool = True,
+    spines: bool = False,
+    label_cats: bool = False,
+    label_fontsize: Optional[float] = None,
+    label_fontweight: str = "bold",
+    label_outline: bool = True,
+    label_arrow: bool = False,
+    label_offset: tuple = (0.5, 0.5),
+    panel_width: float = 2.88,
+    panel_height: float = 2.75,
+    figsize: Optional[tuple] = None,    # single-plot mode override
+    dpi: int = 320,
+    fig_dir: Optional[str] = None,
+) -> Union[Axes, Figure]:
+    """Plot UMAP colored by an obs column, as a single panel or a per-condition grid.
 
-    if legend:
-        if legend_order == 'auto':
-            try:
-                order = sorted(categories, key=lambda x: float(x))
-            except (ValueError, TypeError):
-                order = categories
-        elif legend_order is not None:
-            order = legend_order
-        else:
-            order = categories
+    Args:
+        adata: AnnData object with `obsm[obsm_key]` (2D embedding) and
+            `obs[col]` (categorical/label column).
+        col: Column in `adata.obs` used for coloring and (if split=True) faceting.
+        conditions: Ordered list of categories to plot. Defaults to
+            `sorted(adata.obs[col].unique())`.
+        color_map: Mapping {category: color}. Auto-generated from `palette` if None.
+        palette: Seaborn palette name used to auto-generate `color_map`.
+        obsm_key: Key in `adata.obsm` holding the 2D embedding (e.g. 'X_umap').
+        split: If False, plot all categories overlaid on one axes. If True,
+            plot one facet per category, each with a grey full-dataset
+            background for context.
+        ax: Existing Axes to draw into. Only honored when `split=False`;
+            ignored when `split=True` (a new grid figure is always created).
+        ncol: Number of columns in the split grid. Ignored if `split=False`.
+        blank_pos: Zero-based slot index at which to insert an empty/hidden
+            panel in the split grid (e.g. to align facets visually).
+        dot_size: Scatter marker size (matplotlib `s=`).
+        alpha: Foreground marker opacity.
+        bg_alpha: Background layer opacity in split mode. If None, auto-scaled
+            as `min(0.3, 5000 / n_cells)`.
+        bg_color: Background layer color in split mode.
+        text_size: Base font size for axis labels/legend/title fallback.
+        title: Panel/figure title. Defaults to `col` if None. Only applied in
+            single-panel mode.
+        title_fontsize: Font size for titles. Falls back to `text_size` if None.
+        legend: If True, draw a legend (single-panel mode only).
+        legend_markerscale: Marker size multiplier in the legend.
+        legend_order: 'auto' to sort categories numerically, an explicit list
+            to set order, or None to use `conditions`/discovery order.
+        xlabel: X-axis label text.
+        ylabel: Y-axis label text.
+        axis_show: If True, draw axis labels (xlabel/ylabel or fig.supxlabel/
+            supylabel in split mode).
+        spines: If True, show axes spines/frame; if False, hide them.
+        label_cats: If True, annotate each category's centroid with its name.
+        label_fontsize: Font size for centroid labels. Falls back to `text_size`.
+        label_fontweight: Font weight for centroid labels.
+        label_outline: If True, outline centroid labels for readability.
+        label_arrow: If True, offset centroid labels and connect with a line.
+        label_offset: (x, y) offset in UMAP units, used only if `label_arrow=True`.
+        panel_width: Per-panel width in inches (split mode).
+        panel_height: Per-panel height in inches (split mode).
+        figsize: Figure size override for single-panel mode. Ignored if split=True.
+        dpi: Figure resolution.
+        fig_dir: If provided, saves the figure as PNG to `{fig_dir}/umap_{col}.png`.
 
-        handles, labels = ax.get_legend_handles_labels()
-        label_to_handle = dict(zip(labels, handles))
-        ordered_handles = [label_to_handle[o] for o in order if o in label_to_handle]
-        ordered_labels  = [o for o in order if o in label_to_handle]
+    Returns:
+        matplotlib.axes.Axes if split=False, matplotlib.figure.Figure if split=True.
 
-        ax.legend(
-            ordered_handles, ordered_labels,
-            markerscale=legend_markerscale,
-            fontsize=text_size,
-            bbox_to_anchor=(1, 1),
-            loc='upper left',
-            frameon=False,
-        )
+    Raises:
+        KeyError: If `obsm_key` is not in `adata.obsm` or `col` is not in `adata.obs`.
+    """
+    if obsm_key not in adata.obsm:
+        raise KeyError(f"'{obsm_key}' not found in adata.obsm")
+    if col not in adata.obs:
+        raise KeyError(f"'{col}' not found in adata.obs")
 
-    return ax
+    udf = pd.DataFrame(adata.obsm[obsm_key][:, :2], columns=["u1", "u2"],
+                       index=adata.obs.index)
+    udf[col] = adata.obs[col].values
+
+    cats = conditions or sorted(udf[col].unique())
+    if color_map is None:
+        colors = sns.color_palette(palette, len(cats))
+        color_map = dict(zip(cats, colors))
+
+    fs_label = label_fontsize if label_fontsize is not None else text_size
+
+    # ---- single panel ----
+    if not split:
+        if ax is None:
+            _, ax = plt.subplots(figsize=figsize or (6, 5), dpi=dpi)
+
+        # NOTE: previously nested under `if ax is None:` — bug fixed by
+        # dedenting so this always runs, whether ax was passed in or created.
+        _draw_panel(ax, udf, col, cats, color_map, dot_size, alpha, None,
+                   background=False, bg_color=bg_color, label_cats=label_cats,
+                   label_fontsize=fs_label, label_fontweight=label_fontweight,
+                   label_outline=label_outline, label_arrow=label_arrow,
+                   label_offset=label_offset)
+
+        ax.set_xticks([]); ax.set_yticks([])
+        if axis_show:
+            ax.set_xlabel(xlabel, size=text_size)
+            ax.set_ylabel(ylabel, size=text_size)
+        ax.set_title(title or col, size=title_fontsize or text_size)
+        ax.set_aspect("equal")
+        for spine in ax.spines.values():
+            spine.set_visible(spines)
+        if legend:
+            order = cats
+            if legend_order == "auto":
+                try:
+                    order = sorted(cats, key=lambda x: float(x))
+                except (ValueError, TypeError):
+                    pass
+            elif legend_order is not None:
+                order = legend_order
+            handles, labels = ax.get_legend_handles_labels()
+            lh = dict(zip(labels, handles))
+            ax.legend([lh[o] for o in order if o in lh],
+                     [o for o in order if o in lh],
+                     markerscale=legend_markerscale, fontsize=text_size,
+                     bbox_to_anchor=(1, 1), loc="upper left", frameon=False)
+        fig = ax.figure
+        result = ax
+
+    # ---- split grid ----
+    else:
+        if bg_alpha is None:
+            bg_alpha = float(min(0.3, 5_000 / max(len(udf), 1)))
+        slots = list(cats)
+        if blank_pos is not None:
+            slots.insert(max(0, min(blank_pos, len(slots))), None)
+        nrow = math.ceil(len(slots) / ncol)
+        fig, axs = plt.subplots(nrow, ncol,
+                                figsize=(panel_width * ncol, panel_height * nrow),
+                                dpi=dpi)
+        axs_flat = list(axs.flat) if hasattr(axs, "flat") else [axs]
+        for i, a in enumerate(axs_flat):
+            if i >= len(slots) or slots[i] is None:
+                a.set_visible(False)
+                continue
+            cat = slots[i]
+            _draw_panel(a, udf, col, [cat], color_map, dot_size, alpha, bg_alpha,
+                       background=True, bg_color=bg_color,
+                       label_cats=label_cats, label_fontsize=fs_label,
+                       label_fontweight=label_fontweight,
+                       label_outline=label_outline, label_arrow=label_arrow,
+                       label_offset=label_offset)
+            a.set_xticks([]); a.set_yticks([])
+            a.set_title(cat, fontsize=title_fontsize or text_size)
+            a.set_aspect("equal")
+            a.set_frame_on(spines)
+        if axis_show:
+            fig.supxlabel(xlabel, fontsize=text_size)
+            fig.supylabel(ylabel, fontsize=text_size)
+        plt.tight_layout()
+        result = fig
+        plt.close(fig)
+
+    if fig_dir:
+        save_path = Path(fig_dir)
+        if save_path.suffix.lower() not in (".png", ".pdf", ".svg"):
+            save_path = save_path.with_suffix(".png")
+        #save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, bbox_inches="tight", dpi=dpi)
+
+    return result
 
 def plot_umap_gene(
     adata,
@@ -275,211 +431,6 @@ def plot_umap_gene(
         print(f"Saved → {save}")
 
     return fig, ax
-
-
-def plot_umap_split(
-    adata,
-    col: str,
-    conditions: Optional[list] = None,
-    color_dict: Optional[dict] = None,
-    palette: str = "tab20",
-    split: bool = False,
-    ncol: int = 3,
-    blank_pos: Optional[int] = None,
-    dot_size: float = 2.0,
-    bg_alpha: Optional[float] = None,
-    fg_alpha: float = 0.75,
-    title_fontsize: int = 7,
-    legend_fontsize: int = 6,
-    axis_show: bool = True,
-    panel_width: float = 2.88,
-    panel_height: float = 2.75,
-    dpi: int = 480,
-    obsm_key: str = "X_umap",
-    fig_dir: Optional[str] = None,
-) -> plt.Figure:
-    """
-    Plot UMAP coloured by a metadata column, with an optional per-condition
-    split view.
-
-    Parameters
-    ----------
-    adata : AnnData
-        AnnData object with obsm[obsm_key] and obs[col].
-    col : str
-        obs column to colour/split by.
-    conditions : list, optional
-        Ordered condition list; defaults to adata.obs[col].unique().
-    color_dict : dict, optional
-        Mapping of {condition: color}; auto-generated from palette if None.
-    palette : str
-        Seaborn palette used when color_dict is None.
-    split : bool
-        False → single coloured UMAP.
-        True  → one panel per condition (highlight + grey background).
-    ncol : int
-        Number of columns in split grid (ignored when split=False).
-    blank_pos : int, optional
-        Zero-based panel index at which to insert a blank (invisible) axes.
-        All conditions are shifted right from that position onward.
-    dot_size : float
-        Scatter marker size (s=).
-    bg_alpha : float, optional
-        Background alpha in split mode; auto-scales if None.
-    fg_alpha : float
-        Foreground / single-plot alpha.
-    title_fontsize : int
-        Per-panel title font size (split mode).
-    legend_fontsize : int
-        Legend font size (single mode).
-    axis_show: bool
-        Show axis or not
-    panel_width : float
-        Panel width in inches.
-    panel_height : float
-        Panel height in inches.
-    dpi : int
-        Figure DPI.
-    obsm_key : str
-        Key in adata.obsm for 2-D coordinates.
-    fig_dir : str, optional
-        Saves figure to this path if provided.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-    """
-    # ── shared setup ─────────────────────────────────────────────────────────
-    udf = pd.DataFrame(
-        adata.obsm[obsm_key],
-        columns=["u1", "u2"],
-        index=adata.obs.index,
-    )
-    udf[col] = adata.obs[col].values
-
-    if conditions is None:
-        conditions = udf[col].unique().tolist()
-
-    if color_dict is None:
-        colors = sns.color_palette(palette, len(conditions))
-        color_dict = dict(zip(conditions, colors))
-    elif isinstance(color_dict, str):
-        color_dict = {cond: color_dict for cond in conditions}
-
-    u1 = udf["u1"].values
-    u2 = udf["u2"].values
-
-    # ── single plot ───────────────────────────────────────────────────────────
-    if not split:
-        fig, ax = plt.subplots(
-            figsize=(panel_width * 1.4, panel_height * 1.4),
-            dpi=dpi,
-        )
-
-        for cond in conditions:
-            mask = (udf[col] == cond).values
-            ax.scatter(
-                u1[mask], u2[mask],
-                s=dot_size,
-                c=[color_dict.get(cond, "steelblue")],
-                alpha=fg_alpha,
-                rasterized=True,
-                linewidths=0,
-                label=cond,
-            )
-
-        ax.legend(
-            markerscale=2,
-            fontsize=legend_fontsize,
-            bbox_to_anchor=(1.01, 1),
-            loc="upper left",
-            frameon=False,
-            title=col,
-            title_fontsize=legend_fontsize,
-        )
-        ax.set_xticks([])
-        ax.set_yticks([])
-        if axis_show:
-            ax.set_xlabel("UMAP 1", fontsize=8)
-            ax.set_ylabel("UMAP 2", fontsize=8)
-        ax.set_title(col, fontsize=title_fontsize + 1)
-        plt.tight_layout()
-
-    # ── split plot ────────────────────────────────────────────────────────────
-    else:
-        if bg_alpha is None:
-            bg_alpha = float(min(0.3, 5_000 / max(len(udf), 1)))
-
-        # Total slots = conditions + 1 blank slot (if blank_pos is set)
-        n_slots = len(conditions) + (1 if blank_pos is not None else 0)
-        nrow = math.ceil(n_slots / ncol)
-
-        fig, axs = plt.subplots(
-            nrows=nrow,
-            ncols=ncol,
-            figsize=(panel_width * ncol, panel_height * nrow),
-            dpi=dpi,
-        )
-        axs_flat = list(axs.flat) if hasattr(axs, "flat") else [axs]
-
-        # Build slot → condition mapping, inserting None at blank_pos
-        slots = list(conditions)
-        if blank_pos is not None:
-            insert_at = max(0, min(blank_pos, len(slots)))
-            slots.insert(insert_at, None)  # None marks the blank panel
-
-        for i, ax in enumerate(axs_flat):
-            # Hide axes beyond the used slots
-            if i >= len(slots):
-                ax.set_visible(False)
-                continue
-
-            cond = slots[i]
-
-            # Blank panel
-            if cond is None:
-                ax.set_visible(False)
-                continue
-
-            mask = (udf[col] == cond).values
-
-            ax.scatter(
-                u1, u2,
-                s=dot_size,
-                c="silver",
-                alpha=bg_alpha,
-                rasterized=True,
-                linewidths=0,
-            )
-            ax.scatter(
-                u1[mask], u2[mask],
-                s=dot_size,
-                c=[color_dict.get(cond, "steelblue")],
-                alpha=fg_alpha,
-                rasterized=True,
-                linewidths=0,
-            )
-
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_title(cond, fontsize=title_fontsize)
-            ax.set_aspect("equal")
-            ax.set_frame_on(False)
-
-        if axis_show:
-            fig.supxlabel("UMAP 1", fontsize=8)
-            fig.supylabel("UMAP 2", fontsize=8)
-            # ax.set_xlabel("UMAP 1", fontsize=8)
-            # ax.set_ylabel("UMAP 2", fontsize=8)
-       
-        plt.tight_layout()
-
-    if fig_dir:
-        os.makedirs(fig_dir, exist_ok=True)
-        save_path = f'{fig_dir}/umap_cond_{col}.png'
-        plt.savefig(save_path, bbox_inches="tight", dpi=dpi)
-
-    return fig
 
 
 def plot_violin(
@@ -828,3 +779,348 @@ def plot_dotplot(
             )
 
     return fig
+
+# --- archive -----------------------------------------------
+
+def plot_umap_by_category(
+    adata, 
+    col='sample', 
+    color_map=None, 
+    ax=None, 
+    title=None,
+    dot_size=0.05, 
+    text_size=5, 
+    alpha=0.75,
+    figsize=(6, 5), 
+    cmap='tab20',
+    legend=True, 
+    legend_markerscale=20,
+    xlabel='UMAP 1', 
+    ylabel='UMAP 2',
+    spines=False, 
+    legend_order=None,
+    label_cats=False, 
+    label_fontsize=None, 
+    label_fontweight='bold',
+    label_outline=True, 
+    label_arrow=False,
+    label_offset=(0.5, 0.5),   # (x, y) offset in UMAP coordinate units
+):
+    """
+    ...
+    label_cats:       Show category name at median centroid (default: False)
+    label_fontsize:   Font size for category labels; defaults to text_size
+    label_fontweight: Font weight for category labels (default: 'bold')
+    label_outline:    Add white outline around labels for readability (default: True)
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.patheffects as pe
+    import pandas as pd
+
+    umap_df = pd.DataFrame(
+        adata.obsm['X_umap'],
+        columns=['umap1', 'umap2'],
+        index=adata.obs.index
+    )
+    umap_df[col] = adata.obs[col]
+
+    categories = sorted(umap_df[col].unique())
+
+    if color_map is None:
+        _cmap = plt.colormaps.get_cmap(cmap).resampled(len(categories))
+        color_map = {cat: _cmap(i) for i, cat in enumerate(categories)}
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=figsize)
+
+    for cat in categories:
+        mask = umap_df[col] == cat
+        cat_umap = umap_df[mask]
+        ax.scatter(
+            cat_umap['umap1'],
+            cat_umap['umap2'],
+            label=cat,
+            s=dot_size,
+            alpha=alpha,
+            color=color_map[cat],
+        )
+
+        if label_cats:
+            cx = cat_umap['umap1'].median()
+            cy = cat_umap['umap2'].median()
+            fs = label_fontsize if label_fontsize is not None else text_size
+
+            if label_arrow:
+                txt = ax.annotate(
+                    str(cat),
+                    xy=(cx, cy),                        # arrow tip → centroid
+                    xytext=(cx + label_offset[0],
+                            cy + label_offset[1]),      # text position
+                    fontsize=fs,
+                    fontweight=label_fontweight,
+                    color=color_map[cat],
+                    ha='center', va='center',
+                    zorder=5,
+                    arrowprops=dict(
+                        arrowstyle='-',                 # plain line, no arrowhead
+                        color=color_map[cat],
+                        lw=0.8,
+                    ),
+                )
+            else:
+                txt = ax.text(
+                    cx, cy, str(cat),
+                    fontsize=fs,
+                    fontweight=label_fontweight,
+                    ha='center', va='center',
+                    color=color_map[cat],
+                    zorder=5,
+                )
+
+            if label_outline:
+                txt.set_path_effects([
+                    pe.withStroke(linewidth=2, foreground='black')
+                ])
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel(xlabel, size=text_size)
+    ax.set_ylabel(ylabel, size=text_size)
+    ax.set_title(title or col, size=text_size)
+    ax.set_aspect('equal')
+
+    for spine in ax.spines.values():
+        spine.set_visible(spines)
+
+    if legend:
+        if legend_order == 'auto':
+            try:
+                order = sorted(categories, key=lambda x: float(x))
+            except (ValueError, TypeError):
+                order = categories
+        elif legend_order is not None:
+            order = legend_order
+        else:
+            order = categories
+
+        handles, labels = ax.get_legend_handles_labels()
+        label_to_handle = dict(zip(labels, handles))
+        ordered_handles = [label_to_handle[o] for o in order if o in label_to_handle]
+        ordered_labels  = [o for o in order if o in label_to_handle]
+
+        ax.legend(
+            ordered_handles, ordered_labels,
+            markerscale=legend_markerscale,
+            fontsize=text_size,
+            bbox_to_anchor=(1, 1),
+            loc='upper left',
+            frameon=False,
+        )
+
+    return ax
+
+
+def plot_umap_split(
+    adata,
+    col: str,
+    conditions: Optional[list] = None,
+    color_dict: Optional[dict] = None,
+    palette: str = "tab20",
+    split: bool = False,
+    ncol: int = 3,
+    blank_pos: Optional[int] = None,
+    dot_size: float = 2.0,
+    bg_alpha: Optional[float] = None,
+    fg_alpha: float = 0.75,
+    title_fontsize: int = 7,
+    legend_fontsize: int = 6,
+    axis_show: bool = True,
+    panel_width: float = 2.88,
+    panel_height: float = 2.75,
+    dpi: int = 480,
+    obsm_key: str = "X_umap",
+    fig_dir: Optional[str] = None,
+) -> plt.Figure:
+    """
+    Plot UMAP coloured by a metadata column, with an optional per-condition
+    split view.
+
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object with obsm[obsm_key] and obs[col].
+    col : str
+        obs column to colour/split by.
+    conditions : list, optional
+        Ordered condition list; defaults to adata.obs[col].unique().
+    color_dict : dict, optional
+        Mapping of {condition: color}; auto-generated from palette if None.
+    palette : str
+        Seaborn palette used when color_dict is None.
+    split : bool
+        False → single coloured UMAP.
+        True  → one panel per condition (highlight + grey background).
+    ncol : int
+        Number of columns in split grid (ignored when split=False).
+    blank_pos : int, optional
+        Zero-based panel index at which to insert a blank (invisible) axes.
+        All conditions are shifted right from that position onward.
+    dot_size : float
+        Scatter marker size (s=).
+    bg_alpha : float, optional
+        Background alpha in split mode; auto-scales if None.
+    fg_alpha : float
+        Foreground / single-plot alpha.
+    title_fontsize : int
+        Per-panel title font size (split mode).
+    legend_fontsize : int
+        Legend font size (single mode).
+    axis_show: bool
+        Show axis or not
+    panel_width : float
+        Panel width in inches.
+    panel_height : float
+        Panel height in inches.
+    dpi : int
+        Figure DPI.
+    obsm_key : str
+        Key in adata.obsm for 2-D coordinates.
+    fig_dir : str, optional
+        Saves figure to this path if provided.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+    """
+    # ── shared setup ─────────────────────────────────────────────────────────
+    udf = pd.DataFrame(
+        adata.obsm[obsm_key],
+        columns=["u1", "u2"],
+        index=adata.obs.index,
+    )
+    udf[col] = adata.obs[col].values
+
+    if conditions is None:
+        conditions = udf[col].unique().tolist()
+
+    if color_dict is None:
+        colors = sns.color_palette(palette, len(conditions))
+        color_dict = dict(zip(conditions, colors))
+    elif isinstance(color_dict, str):
+        color_dict = {cond: color_dict for cond in conditions}
+
+    u1 = udf["u1"].values
+    u2 = udf["u2"].values
+
+    # ── single plot ───────────────────────────────────────────────────────────
+    if not split:
+        fig, ax = plt.subplots(
+            figsize=(panel_width * 1.4, panel_height * 1.4),
+            dpi=dpi,
+        )
+
+        for cond in conditions:
+            mask = (udf[col] == cond).values
+            ax.scatter(
+                u1[mask], u2[mask],
+                s=dot_size,
+                c=[color_dict.get(cond, "steelblue")],
+                alpha=fg_alpha,
+                rasterized=True,
+                linewidths=0,
+                label=cond,
+            )
+
+        ax.legend(
+            markerscale=2,
+            fontsize=legend_fontsize,
+            bbox_to_anchor=(1.01, 1),
+            loc="upper left",
+            frameon=False,
+            title=col,
+            title_fontsize=legend_fontsize,
+        )
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if axis_show:
+            ax.set_xlabel("UMAP 1", fontsize=8)
+            ax.set_ylabel("UMAP 2", fontsize=8)
+        ax.set_title(col, fontsize=title_fontsize + 1)
+        plt.tight_layout()
+
+    # ── split plot ────────────────────────────────────────────────────────────
+    else:
+        if bg_alpha is None:
+            bg_alpha = float(min(0.3, 5_000 / max(len(udf), 1)))
+
+        # Total slots = conditions + 1 blank slot (if blank_pos is set)
+        n_slots = len(conditions) + (1 if blank_pos is not None else 0)
+        nrow = math.ceil(n_slots / ncol)
+
+        fig, axs = plt.subplots(
+            nrows=nrow,
+            ncols=ncol,
+            figsize=(panel_width * ncol, panel_height * nrow),
+            dpi=dpi,
+        )
+        axs_flat = list(axs.flat) if hasattr(axs, "flat") else [axs]
+
+        # Build slot → condition mapping, inserting None at blank_pos
+        slots = list(conditions)
+        if blank_pos is not None:
+            insert_at = max(0, min(blank_pos, len(slots)))
+            slots.insert(insert_at, None)  # None marks the blank panel
+
+        for i, ax in enumerate(axs_flat):
+            # Hide axes beyond the used slots
+            if i >= len(slots):
+                ax.set_visible(False)
+                continue
+
+            cond = slots[i]
+
+            # Blank panel
+            if cond is None:
+                ax.set_visible(False)
+                continue
+
+            mask = (udf[col] == cond).values
+
+            ax.scatter(
+                u1, u2,
+                s=dot_size,
+                c="silver",
+                alpha=bg_alpha,
+                rasterized=True,
+                linewidths=0,
+            )
+            ax.scatter(
+                u1[mask], u2[mask],
+                s=dot_size,
+                c=[color_dict.get(cond, "steelblue")],
+                alpha=fg_alpha,
+                rasterized=True,
+                linewidths=0,
+            )
+
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(cond, fontsize=title_fontsize)
+            ax.set_aspect("equal")
+            ax.set_frame_on(False)
+
+        if axis_show:
+            fig.supxlabel("UMAP 1", fontsize=8)
+            fig.supylabel("UMAP 2", fontsize=8)
+            # ax.set_xlabel("UMAP 1", fontsize=8)
+            # ax.set_ylabel("UMAP 2", fontsize=8)
+       
+        plt.tight_layout()
+
+    if fig_dir:
+        os.makedirs(fig_dir, exist_ok=True)
+        save_path = f'{fig_dir}/umap_cond_{col}.png'
+        plt.savefig(save_path, bbox_inches="tight", dpi=dpi)
+
+    return fig
+
