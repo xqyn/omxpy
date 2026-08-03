@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import os
 import math
-from typing import Dict, List, Optional, Sequence, Union
+from pathlib import Path
+from typing import Optional, Union, Literal
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
 
 import matplotlib as mpl
 import matplotlib.colors as mcolors
@@ -294,6 +305,260 @@ def plot_umap(
         fig.savefig(save_path, bbox_inches="tight", dpi=dpi)
 
     return result
+
+
+# --------------------------------------------------
+import math
+from pathlib import Path
+from typing import Optional, Union
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
+
+
+def _values_to_sizes(vals: np.ndarray, size_scale: bool, dot_size: float,
+                      size_range: tuple, vmin: float, vmax: float) -> np.ndarray:
+    """Return per-point marker sizes. Scalar `dot_size` if size_scale=False,
+    else linearly scaled into `size_range` based on value magnitude."""
+    if not size_scale:
+        return np.full(vals.shape, dot_size)
+    lo, hi = size_range
+    if vmax > vmin:
+        norm = (np.clip(vals, vmin, vmax) - vmin) / (vmax - vmin)
+    else:
+        norm = np.zeros_like(vals)
+    return lo + norm * (hi - lo)
+
+
+def _draw_panel_cont(ax, udf, col, dot_size, size_scale, size_range, alpha,
+                      cmap, na_color, na_alpha, vmin, vmax,
+                      background, bg_color, bg_alpha):
+    """Draw one continuous-color panel: optional grey full-dataset background,
+    then NaN points in `na_color`, then valid points colored by `col`."""
+    if background:
+        ax.scatter(udf["u1"], udf["u2"], s=dot_size, c=bg_color,
+                   alpha=bg_alpha, linewidths=0)
+
+    vals = udf[col].values.astype(float)
+    nan_mask = np.isnan(vals)
+
+    # NaN points, plotted first so colored points sit on top
+    if nan_mask.any():
+        nan_size = dot_size if not size_scale else size_range[0]
+        ax.scatter(udf.loc[nan_mask, "u1"], udf.loc[nan_mask, "u2"],
+                   s=nan_size, c=na_color,
+                   alpha=na_alpha if na_alpha is not None else alpha,
+                   linewidths=0)
+
+    if (~nan_mask).any():
+        good = udf.loc[~nan_mask]
+        good_vals = vals[~nan_mask]
+        sizes = _values_to_sizes(good_vals, size_scale, dot_size, size_range,
+                                 vmin, vmax)
+        sc = ax.scatter(good["u1"], good["u2"], s=sizes, c=good_vals,
+                        cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha,
+                        linewidths=0)
+        return sc
+    return None
+
+
+def plot_umap_cont(
+    adata,
+    col: str,
+    obsm_key: str = "X_umap",
+    split: bool = False,
+    split_by: Optional[str] = None,     # categorical column to facet by (split mode)
+    conditions: Optional[list] = None,  # ordered categories of split_by
+    ax: Optional[Axes] = None,          # only used when split=False
+    ncol: int = 3,
+    blank_pos: Optional[int] = None,
+    dot_size: float = 2.0,
+    size_scale: bool = False,           # scale dot size by value magnitude
+    size_range: tuple = (1.0, 30.0),    # (min, max) marker size when size_scale=True
+    alpha: float = 0.75,
+    cmap: str = "viridis",
+    na_color: str = "lightgrey",
+    na_alpha: Optional[float] = None,   # falls back to `alpha` if None
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+    bg_alpha: Optional[float] = None,   # split mode only; auto-scaled if None
+    bg_color: str = "silver",           # split mode only
+    text_size: float = 6,
+    title: Optional[str] = None,
+    title_fontsize: Optional[int] = None,
+    colorbar: bool = True,
+    cbar_label: Optional[str] = None,
+    xlabel: str = "UMAP 1",
+    ylabel: str = "UMAP 2",
+    axis_show: bool = True,
+    spines: bool = False,
+    panel_width: float = 2.88,
+    panel_height: float = 2.75,
+    figsize: Optional[tuple] = None,    # single-plot mode override
+    dpi: int = 320,
+    fig_dir: Optional[str] = None,
+) -> Union[Axes, Figure]:
+    """Plot UMAP colored by a continuous obs column, as a single panel or a
+    per-category grid faceted by a separate categorical column.
+
+    Args:
+        adata: AnnData object with `obsm[obsm_key]` (2D embedding) and
+            `obs[col]` (numeric column).
+        col: Continuous column in `adata.obs` used for coloring. NaN values
+            are drawn in `na_color`.
+        obsm_key: Key in `adata.obsm` holding the 2D embedding.
+        split: If False, single panel colored continuously by `col`. If True,
+            facet by `split_by`, each panel with a grey full-dataset
+            background for context, colored points on top by `col`.
+        split_by: Categorical column in `adata.obs` used to facet when
+            split=True. Required if split=True.
+        conditions: Ordered list of `split_by` categories to plot. Defaults
+            to `sorted(adata.obs[split_by].unique())`.
+        ax: Existing Axes to draw into. Only honored when `split=False`.
+        ncol: Number of columns in the split grid.
+        blank_pos: Zero-based slot index at which to insert an empty panel.
+        dot_size: Base scatter marker size (matplotlib `s=`); acts as the
+            fixed size when `size_scale=False`, or the minimum reference
+            size for NaN points when `size_scale=True`.
+        size_scale: If True, scale marker size by the (normalized) value of
+            `col`, between `size_range`. Default False (fixed `dot_size`).
+        size_range: (min, max) marker sizes used when `size_scale=True`.
+        alpha: Foreground marker opacity for colored (non-NaN) points.
+        cmap: Matplotlib/seaborn colormap name used for continuous coloring.
+        na_color: Color used for NaN values.
+        na_alpha: Opacity for NaN points. Falls back to `alpha` if None.
+        vmin, vmax: Color scale bounds. Default to min/max of non-NaN `col`.
+        bg_alpha: Background layer opacity in split mode. If None, auto-scaled
+            as `min(0.3, 5000 / n_cells)`.
+        bg_color: Background layer color in split mode.
+        text_size: Base font size for axis labels/colorbar/title fallback.
+        title: Panel/figure title. Defaults to `col` if None (single-panel).
+        title_fontsize: Font size for titles. Falls back to `text_size`.
+        colorbar: If True, draw a colorbar (single-panel: attached to axes;
+            split mode: one shared colorbar for the figure).
+        cbar_label: Label for the colorbar. Defaults to `col`.
+        xlabel: X-axis label text.
+        ylabel: Y-axis label text.
+        axis_show: If True, draw axis labels.
+        spines: If True, show axes spines/frame.
+        panel_width: Per-panel width in inches (split mode).
+        panel_height: Per-panel height in inches (split mode).
+        figsize: Figure size override for single-panel mode.
+        dpi: Figure resolution.
+        fig_dir: If provided, saves the figure as PNG to `{fig_dir}/umap_{col}.png`.
+
+    Returns:
+        matplotlib.axes.Axes if split=False, matplotlib.figure.Figure if split=True.
+
+    Raises:
+        KeyError: If `obsm_key`/`col`/`split_by` not found in adata.
+        ValueError: If split=True and `split_by` is not provided.
+    """
+    if obsm_key not in adata.obsm:
+        raise KeyError(f"'{obsm_key}' not found in adata.obsm")
+    if col not in adata.obs:
+        raise KeyError(f"'{col}' not found in adata.obs")
+    if split and split_by is None:
+        raise ValueError("split=True requires `split_by` (a categorical obs column)")
+    if split and split_by not in adata.obs:
+        raise KeyError(f"'{split_by}' not found in adata.obs")
+
+    udf = pd.DataFrame(adata.obsm[obsm_key][:, :2], columns=["u1", "u2"],
+                       index=adata.obs.index)
+    udf[col] = pd.to_numeric(adata.obs[col], errors="coerce").values
+    if split:
+        udf[split_by] = adata.obs[split_by].values
+
+    vals = udf[col].values.astype(float)
+    finite_vals = vals[~np.isnan(vals)]
+    if vmin is None:
+        vmin = float(np.min(finite_vals)) if finite_vals.size else 0.0
+    if vmax is None:
+        vmax = float(np.max(finite_vals)) if finite_vals.size else 1.0
+
+    # ---- single panel ----
+    if not split:
+        if ax is None:
+            _, ax = plt.subplots(figsize=figsize or (6, 5), dpi=dpi)
+
+        sc = _draw_panel_cont(ax, udf, col, dot_size, size_scale, size_range,
+                              alpha, cmap, na_color, na_alpha, vmin, vmax,
+                              background=False, bg_color=bg_color, bg_alpha=None)
+
+        ax.set_xticks([]); ax.set_yticks([])
+        if axis_show:
+            ax.set_xlabel(xlabel, size=text_size)
+            ax.set_ylabel(ylabel, size=text_size)
+        ax.set_title(title or col, size=title_fontsize or text_size)
+        ax.set_aspect("equal")
+        for spine in ax.spines.values():
+            spine.set_visible(spines)
+        if colorbar and sc is not None:
+            cb = ax.figure.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+            cb.set_label(cbar_label or col, fontsize=text_size)
+            cb.ax.tick_params(labelsize=text_size)
+        fig = ax.figure
+        result = ax
+
+    # ---- split grid ----
+    else:
+        if bg_alpha is None:
+            bg_alpha = float(min(0.3, 5_000 / max(len(udf), 1)))
+        cats = conditions or sorted(udf[split_by].unique())
+        slots = list(cats)
+        if blank_pos is not None:
+            slots.insert(max(0, min(blank_pos, len(slots))), None)
+        nrow = math.ceil(len(slots) / ncol)
+        fig, axs = plt.subplots(nrow, ncol,
+                                figsize=(panel_width * ncol, panel_height * nrow),
+                                dpi=dpi)
+        axs_flat = list(axs.flat) if hasattr(axs, "flat") else [axs]
+        last_sc = None
+        for i, a in enumerate(axs_flat):
+            if i >= len(slots) or slots[i] is None:
+                a.set_visible(False)
+                continue
+            cat = slots[i]
+            sub = udf[udf[split_by] == cat]
+            sc = _draw_panel_cont(a, sub, col, dot_size, size_scale, size_range,
+                                  alpha, cmap, na_color, na_alpha, vmin, vmax,
+                                  background=True, bg_color=bg_color,
+                                  bg_alpha=bg_alpha)
+            if sc is not None:
+                last_sc = sc
+            a.set_xticks([]); a.set_yticks([])
+            a.set_title(cat, fontsize=title_fontsize or text_size)
+            a.set_aspect("equal")
+            a.set_frame_on(spines)
+        if axis_show:
+            fig.supxlabel(xlabel, fontsize=text_size)
+            fig.supylabel(ylabel, fontsize=text_size)
+        if colorbar and last_sc is not None:
+            sm = ScalarMappable(norm=Normalize(vmin=vmin, vmax=vmax), cmap=cmap)
+            sm.set_array([])
+            cb = fig.colorbar(sm, ax=axs_flat, fraction=0.02, pad=0.02)
+            cb.set_label(cbar_label or col, fontsize=text_size)
+            cb.ax.tick_params(labelsize=text_size)
+        else:
+            plt.tight_layout()
+        result = fig
+        plt.close(fig)
+
+    if fig_dir:
+        save_path = Path(fig_dir)
+        if save_path.suffix.lower() not in (".png", ".pdf", ".svg"):
+            save_path = save_path.with_suffix(".png")
+        fig.savefig(save_path, bbox_inches="tight", dpi=dpi)
+
+    return result
+
+# --------------------------------------------------
 
 def plot_umap_gene(
     adata,
