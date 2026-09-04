@@ -58,7 +58,15 @@ from matplotlib.figure import Figure
  
  
 # ── internal draw helpers (one scatter "panel" each; not part of the public API) ──
- 
+
+def _sort_categories(cats) -> list:
+    """Sort categories numerically if all values parse as numbers (e.g.
+    leiden cluster labels '0','1',...,'22'), else fall back to lexical sort."""
+    try:
+        return sorted(cats, key=lambda x: float(x))
+    except (ValueError, TypeError):
+        return sorted(cats)
+
 def _draw_panel_cat(
     ax: Axes, udf: pd.DataFrame, col: str, cats: list, color_map: dict,
     dot_size: float, alpha: float, bg_alpha: Optional[float], background: bool,
@@ -335,7 +343,7 @@ def plot_embedding(
     # ════════════════════════════════════════════════════════ categorical ═══
     if not is_cont:
         udf[col] = adata.obs[col].values
-        cats = conditions or sorted(udf[col].unique())
+        cats = conditions or _sort_categories(udf[col].unique())
  
         if color_map is None:
             colors = sns.color_palette(palette, len(cats))
