@@ -1,63 +1,42 @@
 """
 omxpy — single-cell embedding plotting
 LUMC, 2026
- 
+
 Merged categorical/continuous UMAP (or any 2D obsm embedding) plotting.
 Replaces: plot_umap, plot_umap_cont, plot_umap_split, plot_umap_by_category.
- 
+
 Usage:
     plot_embedding(adata, "cell_type")                       # categorical, auto-detected
     plot_embedding(adata, "cCARLIN_hamming_umi")              # continuous, auto-detected
     plot_embedding(adata, "pseudotime", zero_color="black")   # flag exact-zero cells
     plot_embedding(adata, "cell_type", split=True, ncol=4)    # per-category facet grid
+    plot_embedding_gene(adata, "Pou5f1")                      # gene expression on embedding
+    plot_violin(adata, "Pou5f1", groupby="cell_type")         # styled sc.pl.violin
+    plot_dotplot(adata, up, down, groupby="cell_type")        # UP/DOWN gene dotplot
+
+Backward compatible: plot_umap_gene is kept as a thin wrapper of plot_embedding_gene.
 """
 
 from __future__ import annotations
- 
+
 import math
+import os
 from pathlib import Path
-from typing import Literal, Optional, Union
- 
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
+from typing import List, Literal, Optional, Union
 
-
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
-from matplotlib.axes import Axes
-
-import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scanpy as sc
 import seaborn as sns
-
- 
-import math
-from pathlib import Path
-from typing import Literal, Optional, Union
- 
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as pe
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
- 
- 
-# ── internal draw helpers (one scatter "panel" each; not part of the public API) ──
+
+
+# ── internal helpers (not part of the public API) ──────────────────────────
 
 def _sort_categories(cats) -> list:
     """Sort categories numerically if all values parse as numbers (e.g.
@@ -67,6 +46,40 @@ def _sort_categories(cats) -> list:
     except (ValueError, TypeError):
         return sorted(cats)
 
+
+def _style_single_ax(
+    ax: Axes, title: str, title_fontsize: float, text_size: float,
+    xlabel: str, ylabel: str, axis_show: bool, spines: bool,
+) -> None:
+    """Shared cosmetics for single-panel embedding plots: no ticks, optional
+    axis labels, title, equal aspect and spine visibility."""
+    ax.set_xticks([]); ax.set_yticks([])
+    if axis_show:
+        ax.set_xlabel(xlabel, size=text_size)
+        ax.set_ylabel(ylabel, size=text_size)
+    ax.set_title(title, size=title_fontsize)
+    ax.set_aspect("equal")
+    for spine in ax.spines.values():
+        spine.set_visible(spines)
+
+
+def _save_fig(fig: Figure, fig_dir: Optional[str], dpi: int) -> None:
+    """Save `fig` to `fig_dir` if given (.png/.pdf/.svg; defaults to .png when
+    the path has no matching suffix)."""
+    if not fig_dir:
+        return
+    save_path = Path(fig_dir)
+    if save_path.suffix.lower() not in (".png", ".pdf", ".svg"):
+        save_path = save_path.with_suffix(".png")
+    fig.savefig(save_path, bbox_inches="tight", dpi=dpi)
+
+
+def _gene_column(mat, idx: int) -> np.ndarray:
+    """Return column `idx` of a dense or sparse matrix as a flat 1D ndarray."""
+    col = mat[:, idx]
+    return np.asarray(col.todense() if hasattr(col, "todense") else col).flatten()
+
+
 def _draw_panel_cat(
     ax: Axes, udf: pd.DataFrame, col: str, cats: list, color_map: dict,
     dot_size: float, alpha: float, bg_alpha: Optional[float], background: bool,
@@ -75,17 +88,17 @@ def _draw_panel_cat(
 ) -> None:
     """Draw one categorical panel: optional grey context layer + colored scatter."""
     u1, u2 = udf["u1"].values, udf["u2"].values
- 
+
     if background:
         ax.scatter(u1, u2, s=dot_size, c=bg_color, alpha=bg_alpha,
                    rasterized=True, linewidths=0)
- 
+
     for cat in cats:
         mask = (udf[col] == cat).values
         ax.scatter(u1[mask], u2[mask], s=dot_size, alpha=alpha,
                    color=color_map[cat], label=cat, rasterized=True,
                    linewidths=0)
- 
+
         if label_cats:
             cx, cy = udf.loc[mask, "u1"].median(), udf.loc[mask, "u2"].median()
             if label_arrow:
@@ -102,10 +115,10 @@ def _draw_panel_cat(
                               va="center", color=color_map[cat], zorder=5)
             if label_outline:
                 txt.set_path_effects([pe.withStroke(linewidth=2, foreground="black")])
- 
- 
+
+
 def _values_to_sizes(vals: np.ndarray, size_scale: bool, dot_size: float,
-                      size_range: tuple, vmin: float, vmax: float) -> np.ndarray:
+                     size_range: tuple, vmin: float, vmax: float) -> np.ndarray:
     """Per-point marker sizes: scalar `dot_size` if size_scale=False, else
     linearly scaled into `size_range` based on value magnitude."""
     if not size_scale:
@@ -116,8 +129,8 @@ def _values_to_sizes(vals: np.ndarray, size_scale: bool, dot_size: float,
     else:
         norm = np.zeros_like(vals)
     return lo + norm * (hi - lo)
- 
- 
+
+
 def _draw_panel_cont(
     ax: Axes, udf: pd.DataFrame, col: str, dot_size: float, size_scale: bool,
     size_range: tuple, alpha: float, cmap: str, na_color: str,
@@ -126,53 +139,52 @@ def _draw_panel_cont(
     background: bool, bg_color: str, bg_alpha: Optional[float],
 ):
     """Draw one continuous panel.
- 
+
     Z-order: grey background -> NaN points (na_color) -> all finite points
     colored by cmap over [vmin, vmax] (range computed over ALL finite values,
     including exact zeros) -> if zero_color is set, exact-zero points are
     redrawn on top in a flat color, overriding their cmap color without
     affecting the scale/colorbar.
- 
+
     Returns the ScalarMappable from the cmap-colored layer (for colorbar
     attachment), or None if there were no finite points to plot.
     """
     if background:
         ax.scatter(udf["u1"], udf["u2"], s=dot_size, c=bg_color,
                    alpha=bg_alpha, linewidths=0, rasterized=True)
- 
+
     vals = udf[col].values.astype(float)
     nan_mask = np.isnan(vals)
- 
+    small = dot_size if not size_scale else size_range[0]
+
     if nan_mask.any():
-        nan_size = dot_size if not size_scale else size_range[0]
         ax.scatter(udf.loc[nan_mask, "u1"], udf.loc[nan_mask, "u2"],
-                   s=nan_size, c=na_color,
+                   s=small, c=na_color,
                    alpha=na_alpha if na_alpha is not None else alpha,
                    linewidths=0, rasterized=True)
- 
-    sc = None
+
+    sc_ = None
     if (~nan_mask).any():
         good = udf.loc[~nan_mask]
         good_vals = vals[~nan_mask]
         sizes = _values_to_sizes(good_vals, size_scale, dot_size, size_range, vmin, vmax)
-        sc = ax.scatter(good["u1"], good["u2"], s=sizes, c=good_vals,
-                        cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha,
-                        linewidths=0, rasterized=True)
- 
+        sc_ = ax.scatter(good["u1"], good["u2"], s=sizes, c=good_vals,
+                         cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha,
+                         linewidths=0, rasterized=True)
+
     if zero_color is not None:
         zero_mask = (~nan_mask) & (vals == 0)
         if zero_mask.any():
-            zero_size = dot_size if not size_scale else size_range[0]
             ax.scatter(udf.loc[zero_mask, "u1"], udf.loc[zero_mask, "u2"],
-                       s=zero_size, c=zero_color,
+                       s=small, c=zero_color,
                        alpha=zero_alpha if zero_alpha is not None else alpha,
                        linewidths=0, rasterized=True)
- 
-    return sc
- 
- 
+
+    return sc_
+
+
 # ── public API ──────────────────────────────────────────────────────────────
- 
+
 def plot_embedding(
     adata,
     col: str,
@@ -229,7 +241,7 @@ def plot_embedding(
 ) -> Union[Axes, Figure]:
     """Plot a 2D embedding (UMAP by default, any `adata.obsm` key) colored by
     an obs column, as a single panel or a per-category facet grid.
- 
+
     `col` dtype (or `kind`) decides which coloring mode is used:
       - categorical: discrete `palette`/`color_map`, legend with one handle
         per category.
@@ -237,7 +249,7 @@ def plot_embedding(
         all finite values), NaN cells drawn in `na_color`, and optionally
         exact-zero cells flagged with `zero_color`, drawn on top so they
         stay visually distinct from NaN and from the cmap-colored range.
- 
+
     Args:
         adata: AnnData with `obsm[obsm_key]` (2D embedding) and `obs[col]`.
         col: Column in `adata.obs` used for coloring and (if split=True)
@@ -310,10 +322,10 @@ def plot_embedding(
             legend honestly shows the range includes an open end rather
             than implying vmax is a true data maximum. 'neither' (default)
             draws a plain colorbar with no arrow caps.
- 
+
     Returns:
         matplotlib.axes.Axes if split=False, matplotlib.figure.Figure if split=True.
- 
+
     Raises:
         KeyError: If `obsm_key`/`col` not found in adata.
         ValueError: If split=True is requested with kind='continuous'
@@ -323,7 +335,7 @@ def plot_embedding(
         raise KeyError(f"'{obsm_key}' not found in adata.obsm")
     if col not in adata.obs:
         raise KeyError(f"'{col}' not found in adata.obs")
- 
+
     is_cont = (
         kind == "continuous"
         or (kind == "auto" and pd.api.types.is_numeric_dtype(adata.obs[col]))
@@ -333,43 +345,38 @@ def plot_embedding(
             "split=True is only supported for categorical `col`. "
             "Continuous mode has no separate facet column in this API."
         )
- 
+
     udf = pd.DataFrame(adata.obsm[obsm_key][:, :2], columns=["u1", "u2"],
                        index=adata.obs.index)
- 
+
     fs_label = label_fontsize if label_fontsize is not None else text_size
     legend_title = legend_title if legend_title is not None else col
- 
+    fs_title = title_fontsize or text_size
+
     # ════════════════════════════════════════════════════════ categorical ═══
     if not is_cont:
         udf[col] = adata.obs[col].values
         cats = conditions or _sort_categories(udf[col].unique())
- 
+
         if color_map is None:
             colors = sns.color_palette(palette, len(cats))
             color_map = dict(zip(cats, colors))
         elif isinstance(color_map, str):
             color_map = {cat: color_map for cat in cats}
- 
+
         # ---- single panel ----
         if not split:
             if ax is None:
                 _, ax = plt.subplots(figsize=figsize or (6, 5), dpi=dpi)
- 
+
             _draw_panel_cat(ax, udf, col, cats, color_map, dot_size, alpha, None,
                             background=False, bg_color=bg_color, label_cats=label_cats,
                             label_fontsize=fs_label, label_fontweight=label_fontweight,
                             label_outline=label_outline, label_arrow=label_arrow,
                             label_offset=label_offset)
- 
-            ax.set_xticks([]); ax.set_yticks([])
-            if axis_show:
-                ax.set_xlabel(xlabel, size=text_size)
-                ax.set_ylabel(ylabel, size=text_size)
-            ax.set_title(title or col, size=title_fontsize or text_size)
-            ax.set_aspect("equal")
-            for spine in ax.spines.values():
-                spine.set_visible(spines)
+
+            _style_single_ax(ax, title or col, fs_title, text_size,
+                             xlabel, ylabel, axis_show, spines)
             if legend:
                 order = cats
                 if legend_order == "auto":
@@ -382,13 +389,13 @@ def plot_embedding(
                 handles, labels = ax.get_legend_handles_labels()
                 lh = dict(zip(labels, handles))
                 ax.legend([lh[o] for o in order if o in lh],
-                         [o for o in order if o in lh],
-                         markerscale=legend_markerscale, fontsize=text_size,
-                         bbox_to_anchor=(1, 1), loc="upper left", frameon=False,
-                         title=legend_title, title_fontsize=text_size)
+                          [o for o in order if o in lh],
+                          markerscale=legend_markerscale, fontsize=text_size,
+                          bbox_to_anchor=(1, 1), loc="upper left", frameon=False,
+                          title=legend_title, title_fontsize=text_size)
             fig = ax.figure
             result = ax
- 
+
         # ---- split grid ----
         else:
             if bg_alpha is None:
@@ -413,7 +420,7 @@ def plot_embedding(
                                 label_outline=label_outline, label_arrow=label_arrow,
                                 label_offset=label_offset)
                 a.set_xticks([]); a.set_yticks([])
-                a.set_title(cat, fontsize=title_fontsize or text_size)
+                a.set_title(cat, fontsize=fs_title)
                 a.set_aspect("equal")
                 a.set_frame_on(spines)
             if axis_show:
@@ -422,33 +429,27 @@ def plot_embedding(
             plt.tight_layout()
             result = fig
             plt.close(fig)
- 
+
     # ════════════════════════════════════════════════════════ continuous ═══
     else:
         udf[col] = pd.to_numeric(adata.obs[col], errors="coerce").values
- 
+
         vals = udf[col].values.astype(float)
         finite_vals = vals[~np.isnan(vals)]
         _vmin = vmin if vmin is not None else (float(np.min(finite_vals)) if finite_vals.size else 0.0)
         _vmax = vmax if vmax is not None else (float(np.max(finite_vals)) if finite_vals.size else 1.0)
- 
+
         if ax is None:
             _, ax = plt.subplots(figsize=figsize or (6, 5), dpi=dpi)
- 
-        sc = _draw_panel_cont(ax, udf, col, dot_size, size_scale, size_range,
-                              alpha, cmap, na_color, na_alpha, zero_color, zero_alpha,
-                              _vmin, _vmax, background=False, bg_color=bg_color, bg_alpha=None)
- 
-        ax.set_xticks([]); ax.set_yticks([])
-        if axis_show:
-            ax.set_xlabel(xlabel, size=text_size)
-            ax.set_ylabel(ylabel, size=text_size)
-        ax.set_title(title or col, size=title_fontsize or text_size)
-        ax.set_aspect("equal")
-        for spine in ax.spines.values():
-            spine.set_visible(spines)
-        if colorbar and sc is not None:
-            cb = ax.figure.colorbar(sc, ax=ax, fraction=0.046, pad=0.04,
+
+        sc_ = _draw_panel_cont(ax, udf, col, dot_size, size_scale, size_range,
+                               alpha, cmap, na_color, na_alpha, zero_color, zero_alpha,
+                               _vmin, _vmax, background=False, bg_color=bg_color, bg_alpha=None)
+
+        _style_single_ax(ax, title or col, fs_title, text_size,
+                         xlabel, ylabel, axis_show, spines)
+        if colorbar and sc_ is not None:
+            cb = ax.figure.colorbar(sc_, ax=ax, fraction=0.046, pad=0.04,
                                     extend=cbar_extend)
             cb.set_label(cbar_label or col, fontsize=text_size)
             cb.ax.tick_params(labelsize=text_size)
@@ -466,21 +467,16 @@ def plot_embedding(
                 cb.set_ticklabels(labels)
         fig = ax.figure
         result = ax
- 
-    if fig_dir:
-        save_path = Path(fig_dir)
-        if save_path.suffix.lower() not in (".png", ".pdf", ".svg"):
-            save_path = save_path.with_suffix(".png")
-        fig.savefig(save_path, bbox_inches="tight", dpi=dpi)
- 
+
+    _save_fig(fig, fig_dir, dpi)
     return result
- 
 
-# --------------------------------------------------
 
-def plot_umap_gene(
+# ── plot_embedding_gene ───────────────────────────────────────────────────────
+def plot_embedding_gene(
     adata,
     gene,
+    obsm_key="X_umap",      # any 2D+ embedding in adata.obsm, e.g. "X_pca", "X_tsne"
     # Layout
     figsize=(6, 5),
     point_size=10,
@@ -495,8 +491,8 @@ def plot_umap_gene(
     # Axes & title
     title=None,
     title_fontsize=13,
-    xlabel="UMAP 1",
-    ylabel="UMAP 2",
+    xlabel=None,            # None -> derived from obsm_key ("UMAP 1", "PCA 1", ...)
+    ylabel=None,
     label_fontsize=10,
     tick_fontsize=8,
     show_ticks=False,
@@ -513,43 +509,50 @@ def plot_umap_gene(
     # Ordering
     sort_order=True,        # plot high-expression cells on top
     # Output
-    fig_dir=None,  
-    dpi=320,# e.g. "umap_Pou5f1.pdf"
+    fig_dir=None,           # e.g. "umap_Pou5f1.pdf"
+    dpi=320,
     ax=None,
     frame=True,
 ):
     """
-    Customisable UMAP scatter coloured by a single gene's expression.
+    Customisable embedding scatter (UMAP by default) coloured by a single
+    gene's expression.
 
     Parameters
     ----------
-    adata   : AnnData object (must have adata.obsm['X_umap'])
-    gene    : str, gene name to colour by
-    layer   : str or None — which layer to use (None → adata.X)
-    use_raw : bool — pull expression from adata.raw (overrides layer)
-    ...     : all other kwargs documented above
+    adata    : AnnData object (must have adata.obsm[obsm_key])
+    gene     : str, gene name to colour by
+    obsm_key : str — key in adata.obsm holding the embedding (first 2 dims used)
+    layer    : str or None — which layer to use (None → adata.X)
+    use_raw  : bool — pull expression from adata.raw (overrides layer)
+    xlabel, ylabel : axis labels; if None, derived from obsm_key
+    ...      : all other kwargs documented above
 
     Returns
     -------
     fig, ax
     """
 
-    # ── 1. Pull UMAP coordinates ──────────────────────────────────────────
-    umap = adata.obsm["X_umap"]
-    x, y = umap[:, 0], umap[:, 1]
+    # ── 1. Pull embedding coordinates ─────────────────────────────────────
+    if obsm_key not in adata.obsm:
+        raise KeyError(f"'{obsm_key}' not found in adata.obsm")
+    emb = np.asarray(adata.obsm[obsm_key])
+    x, y = emb[:, 0], emb[:, 1]
+
+    # Default axis labels from the embedding name
+    if xlabel is None or ylabel is None:
+        base = obsm_key[2:] if obsm_key.startswith("X_") else obsm_key
+        base = base.upper() if base.lower() in {"umap", "pca", "tsne"} else base
+        xlabel = xlabel if xlabel is not None else f"{base} 1"
+        ylabel = ylabel if ylabel is not None else f"{base} 2"
 
     # ── 2. Pull expression values ─────────────────────────────────────────
     if use_raw and adata.raw is not None:
-        idx = adata.raw.var_names.get_loc(gene)
-        expr = np.asarray(adata.raw.X[:, idx].todense()).flatten()
+        expr = _gene_column(adata.raw.X, adata.raw.var_names.get_loc(gene))
     elif layer is not None:
-        idx = adata.var_names.get_loc(gene)
-        mat = adata.layers[layer]
-        expr = np.asarray(mat[:, idx].todense() if hasattr(mat, "todense") else mat[:, idx]).flatten()
+        expr = _gene_column(adata.layers[layer], adata.var_names.get_loc(gene))
     else:
-        idx = adata.var_names.get_loc(gene)
-        mat = adata.X
-        expr = np.asarray(mat[:, idx].todense() if hasattr(mat, "todense") else mat[:, idx]).flatten()
+        expr = _gene_column(adata.X, adata.var_names.get_loc(gene))
 
     # ── 3. Split zero / non-zero cells ───────────────────────────────────
     mask_expr = expr > 0
@@ -562,8 +565,8 @@ def plot_umap_gene(
         x_ex, y_ex, c_ex = x_ex[order], y_ex[order], c_ex[order]
 
     # ── 5. Colour-norm ────────────────────────────────────────────────────
-    _vmin = vmin if vmin is not None else c_ex.min() if mask_expr.any() else 0
-    _vmax = vmax if vmax is not None else c_ex.max() if mask_expr.any() else 1
+    _vmin = vmin if vmin is not None else (c_ex.min() if mask_expr.any() else 0)
+    _vmax = vmax if vmax is not None else (c_ex.max() if mask_expr.any() else 1)
 
     if vcenter is not None:
         norm = mcolors.TwoSlopeNorm(vmin=_vmin, vcenter=vcenter, vmax=_vmax)
@@ -580,15 +583,16 @@ def plot_umap_gene(
 
     # ── 7. Plot NA cells first (background) ──────────────────────────────
     ax.scatter(x_na, y_na, s=point_size, c=na_color, alpha=alpha,
-               linewidths=0, rasterized=True)
+               linewidths=0, rasterized=True,
+               label=f"{gene} = 0" if na_in_legend else None)
 
     # ── 8. Plot expressing cells ──────────────────────────────────────────
-    sc = ax.scatter(x_ex, y_ex, s=point_size, c=c_ex, cmap=cmap,
-                    norm=norm, alpha=alpha, linewidths=0, rasterized=True)
+    sc_ = ax.scatter(x_ex, y_ex, s=point_size, c=c_ex, cmap=cmap,
+                     norm=norm, alpha=alpha, linewidths=0, rasterized=True)
 
     # ── 9. Colorbar ───────────────────────────────────────────────────────
     if colorbar and mask_expr.any():
-        cb = fig.colorbar(sc, ax=ax, shrink=colorbar_shrink, aspect=colorbar_aspect)
+        cb = fig.colorbar(sc_, ax=ax, shrink=colorbar_shrink, aspect=colorbar_aspect)
         cb.set_label(colorbar_label or gene, fontsize=label_fontsize)
         cb.ax.tick_params(labelsize=tick_fontsize)
 
@@ -597,7 +601,7 @@ def plot_umap_gene(
     ax.set_xlabel(xlabel, fontsize=label_fontsize)
     ax.set_ylabel(ylabel, fontsize=label_fontsize)
     ax.tick_params(labelsize=tick_fontsize)
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
     ax.set_frame_on(frame)
 
     if not show_ticks:
@@ -609,16 +613,26 @@ def plot_umap_gene(
                   frameon=False, loc="lower right")
 
     plt.tight_layout()
-
-    if fig_dir:
-        save_path = Path(fig_dir)
-        if save_path.suffix.lower() not in (".png", ".pdf", ".svg"):
-            save_path = save_path.with_suffix(".png")
-        fig.savefig(save_path, bbox_inches="tight", dpi=dpi)
+    _save_fig(fig, fig_dir, dpi)
 
     return fig, ax
 
 
+def plot_umap_gene(adata, gene, *args, **kwargs):
+    """Backward-compatible wrapper for `plot_embedding_gene` on `X_umap`.
+
+    Accepts the same arguments, in the same positional order, as the original
+    `plot_umap_gene` (i.e. `figsize` follows `gene`), so existing calls keep
+    working. Prefer `plot_embedding_gene` in new code.
+
+    Returns
+    -------
+    fig, ax
+    """
+    return plot_embedding_gene(adata, gene, "X_umap", *args, **kwargs)
+
+
+# ── plot_violin ───────────────────────────────────────────────────────────────
 def plot_violin(
     adata,
     keys: Union[str, List[str]],
@@ -764,14 +778,13 @@ def plot_violin(
     # ── per-axis styling ──────────────────────────────────────────────────
     for ax in axes:
 
-        # ── FIX 1: remove the spurious horizontal line at y=0 ────────────
-        # Scanpy / seaborn draws a thin baseline at y=0 as a Line2D.
+        # remove the spurious horizontal line at y=0 (drawn as a Line2D)
         for line in ax.lines:
             yd = line.get_ydata()
             if len(yd) > 0 and len(set(yd.tolist())) == 1 and float(yd[0]) == 0.0:
                 line.set_visible(False)
 
-        # ── FIX 2: hide x-tick labels; use legend instead ─────────────────
+        # hide x-tick labels; the shared legend replaces them
         ax.set_xticklabels([])
         ax.tick_params(axis="x", length=0)
 
@@ -794,15 +807,11 @@ def plot_violin(
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
 
-        # tick fontsize
         ax.tick_params(labelsize=fontsize)
 
-        # axis labels
-        if xlabel is not None:
-            ax.set_xlabel(xlabel, fontsize=fontsize)
-        else:
-            ax.set_xlabel("")   # suppress the default groupby label per-axis
-
+        # axis labels (empty x-label suppresses scanpy's default groupby label)
+        ax.set_xlabel(xlabel if xlabel is not None else "",
+                      **({"fontsize": fontsize} if xlabel is not None else {}))
         if ylabel is not None:
             ax.set_ylabel(ylabel, fontsize=fontsize)
 
@@ -812,12 +821,11 @@ def plot_violin(
 
     # ── shared legend ─────────────────────────────────────────────────────
     if legend_handles:
-        ncol = legend_ncol if legend_ncol is not None else len(legend_handles)
         fig.legend(
             handles=legend_handles,
             title=groupby,
             loc=legend_loc,
-            ncol=ncol,
+            ncol=legend_ncol if legend_ncol is not None else len(legend_handles),
             bbox_to_anchor=legend_anchor,
             fontsize=fontsize,
             title_fontsize=fontsize,
@@ -931,7 +939,6 @@ def plot_dotplot(
         gene_groups,
         var_group_rotation=var_group_rotation,
         groupby=groupby,
-        #categories_order=groups,
         use_raw=use_raw,
         cmap=cmap,
         standard_scale=standard_scale,
@@ -952,7 +959,6 @@ def plot_dotplot(
     if sample_design is not None and color_map is not None:
         dp.add_totals(color=[color_map[c] for c in sample_design])
 
-    #dp.make_figure()
     fig = dp.get_axes()["mainplot_ax"].get_figure()
 
     if fig_dir is not None:
